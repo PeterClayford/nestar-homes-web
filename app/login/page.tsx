@@ -10,10 +10,38 @@ export default function AuthPage() {
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checkingEmail, setCheckingEmail] = useState(false)
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
 
   const router = useRouter()
   const supabase = createClient()
+
+  // Real-time email availability checker
+  const checkEmailExists = async (emailToCheck: string) => {
+    if (!isSignUp || !emailToCheck || !emailToCheck.includes('@')) return
+
+    setCheckingEmail(true)
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', emailToCheck.trim().toLowerCase())
+        .maybeSingle()
+
+      if (!error && data) {
+        // Email exists in database: notify and auto-switch to Sign In
+        setMessage({
+          type: 'error',
+          text: 'This email is already registered. Switched to Sign In mode for you.',
+        })
+        setIsSignUp(false)
+      }
+    } catch (err) {
+      console.error('Email check error:', err)
+    } finally {
+      setCheckingEmail(false)
+    }
+  }
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,7 +51,7 @@ export default function AuthPage() {
     try {
       if (isSignUp) {
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: email.trim().toLowerCase(),
           password,
           options: {
             data: {
@@ -34,38 +62,34 @@ export default function AuthPage() {
 
         if (error) throw error
 
-        // Supabase returns an empty identities array if the user already exists
         if (data?.user && data.user.identities && data.user.identities.length === 0) {
           setMessage({
             type: 'error',
-            text: 'This email is already registered. Please switch to Sign In.',
+            text: 'This email is already registered. Please Sign In.',
           })
-          setIsSignUp(false) // Auto switch to Sign In view
+          setIsSignUp(false)
           setPassword('')
           return
         }
 
-        // Check if session was established automatically (Email Confirmation Disabled in Supabase)
         if (data?.session) {
           router.push('/')
           router.refresh()
           return
         }
 
-        // Email confirmation is required
         setMessage({
           type: 'success',
           text: 'Account created! Please switch to Sign In or check your email to confirm.',
         })
         
-        // Reset form inputs and switch view to prevent double-submits
         setFullName('')
         setPassword('')
         setIsSignUp(false)
 
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim().toLowerCase(),
           password,
         })
 
@@ -75,11 +99,10 @@ export default function AuthPage() {
         router.refresh()
       }
     } catch (err: any) {
-      // Catch explicit duplicate errors
       if (err.message?.toLowerCase().includes('already registered') || err.message?.toLowerCase().includes('user_already_exists')) {
         setMessage({
           type: 'error',
-          text: 'An account with this email already exists. Please Sign In.',
+          text: 'An account with this email already exists. Switched to Sign In.',
         })
         setIsSignUp(false)
         setPassword('')
@@ -152,6 +175,7 @@ export default function AuthPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => checkEmailExists(email)}
                 placeholder="name@example.com"
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition outline-none"
               />
@@ -166,6 +190,7 @@ export default function AuthPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onFocus={() => checkEmailExists(email)}
                 placeholder="••••••••"
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition outline-none"
               />
@@ -173,7 +198,7 @@ export default function AuthPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || checkingEmail}
               className="w-full flex justify-center py-3.5 px-4 rounded-xl shadow-sm text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition disabled:opacity-50 cursor-pointer"
             >
               {loading
