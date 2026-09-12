@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function AuthPage() {
@@ -17,6 +17,8 @@ export default function AuthPage() {
 
   const emailInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTarget = searchParams.get('redirect') || '/'
   const supabase = createClient()
 
   const checkEmailExists = async (emailToCheck: string) => {
@@ -113,7 +115,7 @@ export default function AuthPage() {
         }
 
         if (data?.session) {
-          router.push('/')
+          router.push(redirectTarget)
           router.refresh()
           return
         }
@@ -135,7 +137,7 @@ export default function AuthPage() {
 
         if (error) throw error
 
-        router.push('/')
+        router.push(redirectTarget)
         router.refresh()
       }
     } catch (err: any) {

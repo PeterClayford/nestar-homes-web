@@ -23,6 +23,16 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const url = request.nextUrl.clone()
 
+  // Require auth for /properties/[id] detailed views
+  if (url.pathname.startsWith('/properties/')) {
+    if (!user) {
+      const loginUrl = new URL('/login', request.url)
+      loginUrl.searchParams.set('redirect', url.pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+  }
+
+  // Admin & Submit Guards
   if (url.pathname.startsWith('/submit') || url.pathname.startsWith('/admin')) {
     if (!user) {
       url.pathname = '/login'
@@ -31,25 +41,18 @@ export async function proxy(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, status, is_verified')
+      .select('role, status')
       .eq('id', user.id)
       .single()
 
-    // Property Upload Guard (/submit)
     if (url.pathname.startsWith('/submit')) {
       const allowedRoles = ['landlord', 'property_manager', 'broker', 'admin']
-      
-      if (
-        !profile || 
-        !allowedRoles.includes(profile.role) || 
-        profile.status !== 'active'
-      ) {
+      if (!profile || !allowedRoles.includes(profile.role) || profile.status !== 'active') {
         url.pathname = '/'
         return NextResponse.redirect(url)
       }
     }
 
-    // Admin & Technical Auditor Guard (/admin)
     if (url.pathname.startsWith('/admin')) {
       if (!profile || !['admin', 'tech_auditor'].includes(profile.role)) {
         url.pathname = '/'
@@ -64,5 +67,5 @@ export async function proxy(request: NextRequest) {
 export default proxy
 
 export const config = {
-  matcher: ['/submit/:path*', '/admin/:path*'],
+  matcher: ['/properties/:path*', '/submit/:path*', '/admin/:path*'],
 }
