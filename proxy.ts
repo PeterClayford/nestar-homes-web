@@ -1,11 +1,10 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+    request: { headers: request.headers },
   })
 
   const supabase = createServerClient(
@@ -13,42 +12,55 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
+        getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
-          response = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          )
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
         },
       },
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+  const url = request.nextUrl.clone()
 
-  const protectedRoutes = ['/submit', '/admin/viewings']
-  const isProtectedRoute = protectedRoutes.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  )
+  if (url.pathname.startsWith('/submit') || url.pathname.startsWith('/admin')) {
+    if (!user) {
+      url.pathname = '/login'
+      return NextResponse.redirect(url)
+    }
 
-  if (isProtectedRoute && !user) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, status, is_verified')
+      .eq('id', user.id)
+      .single()
+
+    // Property Upload Guard (/submit)
+    if (url.pathname.startsWith('/submit')) {
+      const allowedRoles = ['landlord', 'property_manager', 'broker', 'admin']
+      
+      if (
+        !profile || 
+        !allowedRoles.includes(profile.role) || 
+        profile.status !== 'active'
+      ) {
+        url.pathname = '/'
+        return NextResponse.redirect(url)
+      }
+    }
+
+    // Admin & Technical Auditor Guard (/admin)
+    if (url.pathname.startsWith('/admin')) {
+      if (!profile || !['admin', 'tech_auditor'].includes(profile.role)) {
+        url.pathname = '/'
+        return NextResponse.redirect(url)
+      }
+    }
   }
 
   return response
 }
 
-export default proxy
-
 export const config = {
-  matcher: ['/submit', '/admin/viewings/:path*'],
+  matcher: ['/submit/:path*', '/admin/:path*'],
 }
