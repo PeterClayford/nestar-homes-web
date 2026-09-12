@@ -23,7 +23,6 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const url = request.nextUrl.clone()
 
-  // Require auth for /properties/[id] detailed views
   if (url.pathname.startsWith('/properties/')) {
     if (!user) {
       const loginUrl = new URL('/login', request.url)
@@ -32,7 +31,6 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Admin & Submit Guards
   if (url.pathname.startsWith('/submit') || url.pathname.startsWith('/admin')) {
     if (!user) {
       url.pathname = '/login'
