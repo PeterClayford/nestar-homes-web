@@ -11,6 +11,11 @@ interface UserProfile {
   role: 'client' | 'landlord' | 'property_manager' | 'broker' | 'admin' | 'tech_auditor'
   status: 'active' | 'under_review' | 'frozen' | 'banned'
   is_verified: boolean
+  verification_documents?: {
+    requested_role?: string
+    notes?: string
+    submitted_at?: string
+  }
   created_at: string
 }
 
@@ -18,6 +23,7 @@ export default function UserManagementPage() {
   const [users, setUsers] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null)
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
 
   const supabase = createClient()
@@ -64,6 +70,7 @@ export default function UserManagementPage() {
       setMessage({ type: 'error', text: `Update failed: ${error.message}` })
     } else {
       setMessage({ type: 'success', text: 'Account governance policy updated successfully.' })
+      setSelectedUser(null)
       await loadUsers()
     }
     setUpdatingId(null)
@@ -76,15 +83,15 @@ export default function UserManagementPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
           <div>
             <h1 className="text-2xl font-black text-gray-900 tracking-tight">
-              Account Governance & Moderation
+              Account Governance & Partner Verification
             </h1>
             <p className="text-xs text-gray-500 mt-1">
-              Manage user roles, verify ownership accounts, and enforce platform restrictions
+              Review partner upgrade applications, assign system privileges, and moderate accounts
             </p>
           </div>
           <button
             onClick={loadUsers}
-            className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold rounded-xl transition self-start md:self-auto"
+            className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold rounded-xl transition self-start md:self-auto cursor-pointer"
           >
             Refresh Users
           </button>
@@ -119,7 +126,7 @@ export default function UserManagementPage() {
                     <th className="py-4 px-6">User / Identity</th>
                     <th className="py-4 px-6">System Role</th>
                     <th className="py-4 px-6">Account Status</th>
-                    <th className="py-4 px-6">Verification</th>
+                    <th className="py-4 px-6">Application</th>
                     <th className="py-4 px-6 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -173,10 +180,23 @@ export default function UserManagementPage() {
                       </td>
 
                       <td className="py-4 px-6">
+                        {u.verification_documents?.notes ? (
+                          <button
+                            onClick={() => setSelectedUser(u)}
+                            className="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                          >
+                            Review App
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-gray-400">None</span>
+                        )}
+                      </td>
+
+                      <td className="py-4 px-6 text-right">
                         <button
                           onClick={() => updateUser(u.id, u.role, u.status, !u.is_verified)}
                           disabled={updatingId === u.id}
-                          className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase transition ${
+                          className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase transition cursor-pointer ${
                             u.is_verified
                               ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                               : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -184,12 +204,6 @@ export default function UserManagementPage() {
                         >
                           {u.is_verified ? 'Verified' : 'Unverified'}
                         </button>
-                      </td>
-
-                      <td className="py-4 px-6 text-right">
-                        <span className="text-[10px] text-gray-400 font-mono">
-                          {new Date(u.created_at).toLocaleDateString()}
-                        </span>
                       </td>
 
                     </tr>
@@ -201,6 +215,47 @@ export default function UserManagementPage() {
         </div>
 
       </div>
+
+      {/* Verification Review Modal */}
+      {selectedUser && (
+        <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
+            <h3 className="text-lg font-extrabold text-gray-900">Partner Application Review</h3>
+            
+            <div className="space-y-2 text-xs text-gray-600 bg-gray-50 p-4 rounded-xl border border-gray-100">
+              <div><strong>Applicant:</strong> {selectedUser.full_name} ({selectedUser.email})</div>
+              <div><strong>Requested Role:</strong> <span className="uppercase text-emerald-600 font-bold">{selectedUser.verification_documents?.requested_role}</span></div>
+              <div><strong>Submission Date:</strong> {new Date(selectedUser.verification_documents?.submitted_at || '').toLocaleString()}</div>
+              <div className="pt-2 border-t border-gray-200 mt-2">
+                <strong>Property References & Notes:</strong>
+                <p className="mt-1 text-gray-800 font-mono text-[11px]">{selectedUser.verification_documents?.notes}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setSelectedUser(null)}
+                className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() =>
+                  updateUser(
+                    selectedUser.id,
+                    (selectedUser.verification_documents?.requested_role as UserProfile['role']) || 'landlord',
+                    'active',
+                    true
+                  )
+                }
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Approve & Elevate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
