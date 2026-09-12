@@ -16,20 +16,17 @@ export default function AuthPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  // Real-time email availability checker
+  // Real-time email check using RPC
   const checkEmailExists = async (emailToCheck: string) => {
     if (!isSignUp || !emailToCheck || !emailToCheck.includes('@')) return
 
     setCheckingEmail(true)
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', emailToCheck.trim().toLowerCase())
-        .maybeSingle()
+      const { data: exists, error } = await supabase.rpc('check_email_exists', {
+        email_to_check: emailToCheck.trim().toLowerCase(),
+      })
 
-      if (!error && data) {
-        // Email exists in database: notify and auto-switch to Sign In
+      if (!error && exists) {
         setMessage({
           type: 'error',
           text: 'This email is already registered. Switched to Sign In mode for you.',
