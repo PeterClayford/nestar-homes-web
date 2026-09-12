@@ -4,21 +4,12 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
+import { getPublishedProperties, Property } from '@/lib/db/properties'
 
 interface UserProfile {
   id: string
   role: 'client' | 'landlord' | 'property_manager' | 'broker' | 'admin' | 'tech_auditor'
   status: string
-}
-
-interface Property {
-  id: string
-  title: string
-  location: string
-  zone: string
-  price: number
-  image_url?: string
-  status?: string
 }
 
 export default function HomePage() {
@@ -33,7 +24,7 @@ export default function HomePage() {
 
   useEffect(() => {
     async function fetchData() {
-      // 1. Fetch Auth Profile
+      // 1. Fetch User Session Profile
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data } = await supabase
@@ -45,18 +36,10 @@ export default function HomePage() {
       }
       setLoading(false)
 
-      // 2. Fetch All Properties from Supabase Database
+      // 2. Fetch Mapped Properties via Central Helper
       setPropertiesLoading(true)
-      const { data: propertiesData, error } = await supabase
-        .from('properties')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (!error && propertiesData) {
-        setProperties(propertiesData as Property[])
-      } else {
-        console.error('Error fetching properties from Supabase:', error)
-      }
+      const data = await getPublishedProperties(supabase)
+      setProperties(data)
       setPropertiesLoading(false)
     }
 
@@ -69,15 +52,17 @@ export default function HomePage() {
     return () => subscription.unsubscribe()
   }, [supabase])
 
-  // Extract unique locations dynamically from database rows
-  const dbLocations = Array.from(new Set(properties.map((p) => p.location).filter(Boolean)))
+  // Extract unique locations dynamically from normalized property records
+  const dbLocations = Array.from(
+    new Set(properties.map((p) => p.location).filter(Boolean))
+  )
   const locations = ['All Locations', ...dbLocations]
 
-  // Filter logic
+  // Dynamic filter logic using standardized properties fields
   const filteredProperties = properties.filter((prop) => {
     const matchesLocation =
       selectedLocation === 'All Locations' ||
-      prop.location?.toLowerCase() === selectedLocation.toLowerCase()
+      prop.location.toLowerCase() === selectedLocation.toLowerCase()
     const matchesBudget = prop.price <= maxBudget
     return matchesLocation && matchesBudget
   })
@@ -118,7 +103,7 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Interactive Filter Controls */}
+        {/* Dynamic Location Filter & Budget Slider */}
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div>
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">
@@ -191,12 +176,12 @@ export default function HomePage() {
                 <div>
                   <div className="relative h-52 w-full overflow-hidden bg-gray-100">
                     <img
-                      src={prop.image_url || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800'}
+                      src={prop.coverImage}
                       alt={prop.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                     />
                     <span className="absolute top-4 left-4 bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-sm">
-                      {prop.location || 'Kampala'}
+                      {prop.location}
                     </span>
                   </div>
 
@@ -204,7 +189,9 @@ export default function HomePage() {
                     <h3 className="font-extrabold text-gray-900 text-base tracking-tight">
                       {prop.title}
                     </h3>
-                    <p className="text-xs text-gray-400 font-medium">{prop.zone || 'Central'}</p>
+                    <p className="text-xs text-gray-400 font-medium">
+                      {prop.zone}
+                    </p>
                   </div>
                 </div>
 
@@ -214,7 +201,7 @@ export default function HomePage() {
                       Monthly Rent
                     </div>
                     <div className="text-xs font-black text-emerald-600">
-                      {prop.price?.toLocaleString()} UGX
+                      {prop.price.toLocaleString()} {prop.currency}
                     </div>
                   </div>
 
