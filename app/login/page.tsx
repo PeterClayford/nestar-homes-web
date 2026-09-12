@@ -10,7 +10,9 @@ export default function AuthPage() {
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resending, setResending] = useState(false)
   const [checkingEmail, setCheckingEmail] = useState(false)
+  const [showResend, setShowResend] = useState(false)
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
 
   const router = useRouter()
@@ -32,6 +34,7 @@ export default function AuthPage() {
           text: 'This email is already registered. Switched to Sign In mode for you.',
         })
         setIsSignUp(false)
+        setShowResend(false)
       }
     } catch (err) {
       console.error('Email check error:', err)
@@ -40,10 +43,41 @@ export default function AuthPage() {
     }
   }
 
+  // Resend OTP / Verification Email handler
+  const handleResendVerification = async () => {
+    if (!email || !email.includes('@')) {
+      setMessage({ type: 'error', text: 'Please enter a valid email address first.' })
+      return
+    }
+
+    setResending(true)
+    setMessage(null)
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim().toLowerCase(),
+      })
+
+      if (error) throw error
+
+      setMessage({
+        type: 'success',
+        text: 'A fresh confirmation link has been sent to your email. Please check your inbox.',
+      })
+      setShowResend(false)
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to resend confirmation email.' })
+    } finally {
+      setResending(false)
+    }
+  }
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setMessage(null)
+    setShowResend(false)
 
     try {
       if (isSignUp) {
@@ -77,7 +111,7 @@ export default function AuthPage() {
 
         setMessage({
           type: 'success',
-          text: 'Account created! Please switch to Sign In or check your email to confirm.',
+          text: 'Account created! Please check your inbox to confirm your email.',
         })
         
         setFullName('')
@@ -96,7 +130,16 @@ export default function AuthPage() {
         router.refresh()
       }
     } catch (err: any) {
-      if (err.message?.toLowerCase().includes('already registered') || err.message?.toLowerCase().includes('user_already_exists')) {
+      const errMsg = err.message || ''
+      
+      // Catch Unconfirmed Email Error & Offer Immediate Resend
+      if (errMsg.toLowerCase().includes('email not confirmed')) {
+        setMessage({
+          type: 'error',
+          text: 'Your email address has not been confirmed yet.',
+        })
+        setShowResend(true)
+      } else if (errMsg.toLowerCase().includes('already registered') || errMsg.toLowerCase().includes('user_already_exists')) {
         setMessage({
           type: 'error',
           text: 'An account with this email already exists. Switched to Sign In.',
@@ -104,7 +147,7 @@ export default function AuthPage() {
         setIsSignUp(false)
         setPassword('')
       } else {
-        setMessage({ type: 'error', text: err.message || 'An error occurred during authentication.' })
+        setMessage({ type: 'error', text: errMsg || 'An error occurred during authentication.' })
       }
     } finally {
       setLoading(false)
@@ -124,6 +167,7 @@ export default function AuthPage() {
             onClick={() => {
               setIsSignUp(!isSignUp)
               setMessage(null)
+              setShowResend(false)
             }}
             className="font-semibold text-emerald-600 hover:text-emerald-500 focus:outline-none underline"
           >
@@ -136,13 +180,24 @@ export default function AuthPage() {
         <div className="bg-white py-8 px-4 shadow-sm sm:rounded-2xl border border-gray-100 sm:px-10">
           {message && (
             <div
-              className={`mb-6 p-4 rounded-xl text-xs font-semibold ${
+              className={`mb-6 p-4 rounded-xl text-xs font-semibold flex flex-col gap-2 ${
                 message.type === 'error'
                   ? 'bg-red-50 text-red-700 border border-red-100'
                   : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
               }`}
             >
-              {message.text}
+              <div>{message.text}</div>
+              
+              {showResend && (
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={resending}
+                  className="self-start mt-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[11px] font-bold transition disabled:opacity-50"
+                >
+                  {resending ? 'Sending Email...' : 'Resend Verification Link'}
+                </button>
+              )}
             </div>
           )}
 
