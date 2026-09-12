@@ -68,7 +68,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-      {/* Dynamic Role-Aware Navigation Bar */}
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -84,7 +83,6 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* "+ List Property" Button: Strictly Hidden from Clients */}
           {!loading && profile && ['landlord', 'property_manager', 'broker', 'admin'].includes(profile.role) && (
             <Link
               href="/submit"
@@ -94,7 +92,6 @@ export default function HomePage() {
             </Link>
           )}
 
-          {/* Client Upgrade Callout Banner */}
           {!loading && profile?.role === 'client' && (
             <Link
               href="/account/upgrade"

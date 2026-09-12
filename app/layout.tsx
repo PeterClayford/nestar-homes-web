@@ -1,9 +1,12 @@
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
 import './globals.css'
-import Navbar from '@/app/components/Navbar'
 
-export const metadata = {
-  title: 'Nestar Homes Uganda | Real Estate Marketplace',
-  description: 'Verified property listings and instant viewing scheduling in Uganda.',
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata: Metadata = {
+  title: 'Nestar Homes Uganda | Real Estate Platform',
+  description: 'Verified rental listings and direct property access in Uganda',
 }
 
 export default function RootLayout({
@@ -13,9 +16,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-gray-50 text-gray-900 antialiased min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-1">{children}</main>
+      <body className={`${inter.className} bg-gray-50 antialiased`}>
+        {children}
       </body>
     </html>
   )
