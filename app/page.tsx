@@ -8,43 +8,21 @@ import { createClient } from '@/lib/supabase/client'
 interface Property {
   id: string
   title: string
-  location: string
-  address: string
-  price: number
-  image_url: string
+  location?: string
+  town_name?: string
+  village_name?: string
+  address?: string
+  price?: number
+  rent_amount?: number
+  currency?: string
+  image_url?: string
+  images?: string[] | string
 }
-
-const MOCK_PROPERTIES: Property[] = [
-  {
-    id: 'ceb47f2b-1105-4624-9cb7-8d85e9474e79',
-    title: 'Modern 2 Bedroom Apartment',
-    location: 'Sonde',
-    address: 'Luwero Zone, Sonde',
-    price: 800000,
-    image_url: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    id: 'd8a12e34-5678-4901-abcd-ef1234567890',
-    title: 'Spacious 3 Bedroom House',
-    location: 'Kyaliwajala',
-    address: 'Namugongo Road, Kyaliwajala',
-    price: 1200000,
-    image_url: 'https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    id: 'f9b23c45-6789-4012-bcde-f23456789012',
-    title: '1 Bedroom Cozy Studio',
-    location: 'Kira',
-    address: 'Kito Zone, Kira',
-    price: 550000,
-    image_url: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80',
-  },
-]
 
 export default function HomePage() {
   const [properties, setProperties] = useState<Property[]>([])
   const [selectedLocation, setSelectedLocation] = useState<string>('All Locations')
-  const [maxBudget, setMaxBudget] = useState<number>(1500000)
+  const [maxBudget, setMaxBudget] = useState<number>(2000000)
   const [loading, setLoading] = useState<boolean>(true)
   const supabase = createClient()
 
@@ -52,41 +30,88 @@ export default function HomePage() {
     async function loadProperties() {
       setLoading(true)
       const { data, error } = await supabase.from('properties').select('*')
+      
+      if (error) {
+        console.error('Supabase fetch error:', error.message)
+      }
+
       if (!error && data && data.length > 0) {
         setProperties(data)
       } else {
-        setProperties(MOCK_PROPERTIES)
+        // Safe fallback mock listings if table is empty
+        setProperties([
+          {
+            id: 'ceb47f2b-1105-4624-9cb7-8d85e9474e79',
+            title: 'Modern 2 Bedroom Apartment',
+            town_name: 'Sonde',
+            village_name: 'Luwero Zone',
+            rent_amount: 800000,
+            currency: 'UGX',
+            images: ['https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80'],
+          },
+          {
+            id: 'd8a12e34-5678-4901-abcd-ef1234567890',
+            title: 'Spacious 3 Bedroom House',
+            town_name: 'Kyaliwajala',
+            village_name: 'Namugongo Road',
+            rent_amount: 1200000,
+            currency: 'UGX',
+            images: ['https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=600&q=80'],
+          },
+          {
+            id: 'f9b23c45-6789-4012-bcde-f23456789012',
+            title: '1 Bedroom Cozy Studio',
+            town_name: 'Kira',
+            village_name: 'Kito Zone',
+            rent_amount: 550000,
+            currency: 'UGX',
+            images: ['https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80'],
+          },
+        ])
       }
       setLoading(false)
     }
+
     loadProperties()
   }, [supabase])
 
   const locations = ['All Locations', 'Sonde', 'Kyaliwajala', 'Kira']
 
   const filteredProperties = properties.filter((item) => {
+    const itemLocation = item.town_name || item.location || ''
+    const itemPrice = item.rent_amount ?? item.price ?? 0
+
     const matchesLocation =
-      selectedLocation === 'All Locations' || item.location === selectedLocation
-    const matchesPrice = item.price <= maxBudget
+      selectedLocation === 'All Locations' || itemLocation.toLowerCase() === selectedLocation.toLowerCase()
+    const matchesPrice = itemPrice <= maxBudget
     return matchesLocation && matchesPrice
   })
+
+  const getPrimaryImage = (images?: string[] | string, defaultUrl?: string) => {
+    if (Array.isArray(images) && images.length > 0) return images[0]
+    if (typeof images === 'string') {
+      try {
+        const parsed = JSON.parse(images)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed[0]
+      } catch {
+        return images
+      }
+    }
+    return defaultUrl || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80'
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
         
-        {/* Hero Banner with Logo & Subtitle */}
+        {/* Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm">
-          <div className="flex items-center gap-4">
-            <Image
-              src="/logo.svg"
-              alt="Nestar Homes"
-              width={120}
-              height={32}
-              className="h-8 w-auto object-contain"
-            />
-            <p className="text-xs md:text-sm text-gray-500 font-medium border-l border-gray-200 pl-4">
-              Verified Rental Listings across Kampala & Greater Wakiso
+          <div>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">
+              Verified Rental Listings
+            </h1>
+            <p className="text-sm md:text-base text-gray-500 mt-1">
+              Find apartments and houses across Kampala & Greater Wakiso
             </p>
           </div>
           <Link
@@ -97,7 +122,7 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {/* Location & Budget Filters */}
+        {/* Filter Controls */}
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
@@ -131,7 +156,7 @@ export default function HomePage() {
               <input
                 type="range"
                 min={300000}
-                max={2000000}
+                max={3000000}
                 step={50000}
                 value={maxBudget}
                 onChange={(e) => setMaxBudget(Number(e.target.value))}
@@ -141,57 +166,65 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Property Grid */}
+        {/* Grid Display */}
         {loading ? (
-          <div className="p-12 text-center text-gray-500 text-sm">Loading rental listings...</div>
+          <div className="p-12 text-center text-gray-500 text-sm">Loading rental listings from Supabase...</div>
         ) : filteredProperties.length === 0 ? (
           <div className="bg-white p-12 rounded-2xl border border-gray-100 text-center text-gray-500 text-sm">
-            No properties found within this location or budget criteria.
+            No properties matching filter.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProperties.map((property) => (
-              <div
-                key={property.id}
-                className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm flex flex-col hover:shadow-md transition"
-              >
-                <div className="relative h-52 w-full bg-gray-100">
-                  <Image
-                    src={property.image_url}
-                    alt={property.title}
-                    fill
-                    className="object-cover"
-                  />
-                  <span className="absolute top-3 left-3 bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm">
-                    {property.location}
-                  </span>
-                </div>
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                  <div>
-                    <h3 className="text-base font-bold text-gray-900 line-clamp-1">
-                      {property.title}
-                    </h3>
-                    <p className="text-xs text-gray-400 mt-1">{property.address}</p>
+            {filteredProperties.map((property) => {
+              const displayLocation = property.town_name || property.location || 'Uganda'
+              const displaySub = property.village_name || property.address || ''
+              const displayPrice = property.rent_amount ?? property.price ?? 0
+              const displayCurrency = property.currency || 'UGX'
+              const imgUrl = getPrimaryImage(property.images, property.image_url)
+
+              return (
+                <div
+                  key={property.id}
+                  className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm flex flex-col hover:shadow-md transition"
+                >
+                  <div className="relative h-52 w-full bg-gray-100">
+                    <Image
+                      src={imgUrl}
+                      alt={property.title}
+                      fill
+                      className="object-cover"
+                    />
+                    <span className="absolute top-3 left-3 bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm">
+                      {displayLocation}
+                    </span>
                   </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                  <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                     <div>
-                      <span className="block text-[10px] text-gray-400 font-semibold uppercase">
-                        Monthly Rent
-                      </span>
-                      <span className="text-sm font-bold text-emerald-600 font-mono">
-                        {property.price.toLocaleString()} UGX
-                      </span>
+                      <h3 className="text-base font-bold text-gray-900 line-clamp-1">
+                        {property.title}
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-1">{displaySub}</p>
                     </div>
-                    <Link
-                      href={`/properties/${property.id}`}
-                      className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold rounded-xl transition shadow-sm"
-                    >
-                      View Details
-                    </Link>
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                      <div>
+                        <span className="block text-[10px] text-gray-400 font-semibold uppercase">
+                          Monthly Rent
+                        </span>
+                        <span className="text-sm font-bold text-emerald-600 font-mono">
+                          {displayPrice.toLocaleString()} {displayCurrency}
+                        </span>
+                      </div>
+                      <Link
+                        href={`/properties/${property.id}`}
+                        className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold rounded-xl transition shadow-sm"
+                      >
+                        View Details
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
