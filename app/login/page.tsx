@@ -22,7 +22,7 @@ export default function AuthPage() {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -34,10 +34,35 @@ export default function AuthPage() {
 
         if (error) throw error
 
+        // Supabase returns an empty identities array if the user already exists
+        if (data?.user && data.user.identities && data.user.identities.length === 0) {
+          setMessage({
+            type: 'error',
+            text: 'This email is already registered. Please switch to Sign In.',
+          })
+          setIsSignUp(false) // Auto switch to Sign In view
+          setPassword('')
+          return
+        }
+
+        // Check if session was established automatically (Email Confirmation Disabled in Supabase)
+        if (data?.session) {
+          router.push('/')
+          router.refresh()
+          return
+        }
+
+        // Email confirmation is required
         setMessage({
           type: 'success',
-          text: 'Account created successfully! If email confirmation is enabled, check your inbox.',
+          text: 'Account created! Please switch to Sign In or check your email to confirm.',
         })
+        
+        // Reset form inputs and switch view to prevent double-submits
+        setFullName('')
+        setPassword('')
+        setIsSignUp(false)
+
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -50,7 +75,17 @@ export default function AuthPage() {
         router.refresh()
       }
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'An error occurred during authentication.' })
+      // Catch explicit duplicate errors
+      if (err.message?.toLowerCase().includes('already registered') || err.message?.toLowerCase().includes('user_already_exists')) {
+        setMessage({
+          type: 'error',
+          text: 'An account with this email already exists. Please Sign In.',
+        })
+        setIsSignUp(false)
+        setPassword('')
+      } else {
+        setMessage({ type: 'error', text: err.message || 'An error occurred during authentication.' })
+      }
     } finally {
       setLoading(false)
     }
@@ -65,6 +100,7 @@ export default function AuthPage() {
         <p className="mt-2 text-center text-sm text-gray-600">
           {isSignUp ? 'Already have an account?' : "Don't have an account yet?"}{' '}
           <button
+            type="button"
             onClick={() => {
               setIsSignUp(!isSignUp)
               setMessage(null)
@@ -138,7 +174,7 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-3.5 px-4 rounded-xl shadow-sm text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition disabled:opacity-50"
+              className="w-full flex justify-center py-3.5 px-4 rounded-xl shadow-sm text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition disabled:opacity-50 cursor-pointer"
             >
               {loading
                 ? isSignUp
