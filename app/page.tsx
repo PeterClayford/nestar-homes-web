@@ -11,16 +11,29 @@ interface UserProfile {
   status: string
 }
 
+interface Property {
+  id: string
+  title: string
+  location: string
+  zone: string
+  price: number
+  image_url?: string
+  status?: string
+}
+
 export default function HomePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
+  const [propertiesLoading, setPropertiesLoading] = useState(true)
   const [selectedLocation, setSelectedLocation] = useState<string>('All Locations')
-  const [maxBudget, setMaxBudget] = useState<number>(2000000)
+  const [maxBudget, setMaxBudget] = useState<number>(3000000)
 
   const supabase = createClient()
 
   useEffect(() => {
-    async function fetchProfile() {
+    async function fetchData() {
+      // 1. Fetch Auth Profile
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data } = await supabase
@@ -31,56 +44,43 @@ export default function HomePage() {
         if (data) setProfile(data as UserProfile)
       }
       setLoading(false)
+
+      // 2. Fetch All Properties from Supabase Database
+      setPropertiesLoading(true)
+      const { data: propertiesData, error } = await supabase
+        .from('properties')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (!error && propertiesData) {
+        setProperties(propertiesData as Property[])
+      } else {
+        console.error('Error fetching properties from Supabase:', error)
+      }
+      setPropertiesLoading(false)
     }
 
-    fetchProfile()
+    fetchData()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      fetchProfile()
+      fetchData()
     })
 
     return () => subscription.unsubscribe()
   }, [supabase])
 
-  const sampleProperties = [
-    {
-      id: 'ceb47f2b-1105-4624-9cb7-8d85e9474e79',
-      title: 'Modern 2 Bedroom Apartment',
-      location: 'Sonde',
-      zone: 'Luwero Zone',
-      price: 800000,
-      priceFormatted: '800,000 UGX',
-      image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
-    },
-    {
-      id: '7a9d6c1b-4bba-4030-a2c5-0b6aedaf0ef0',
-      title: 'Spacious 3 Bedroom House',
-      location: 'Kyaliwajala',
-      zone: 'Namugongo Road',
-      price: 1200000,
-      priceFormatted: '1,200,000 UGX',
-      image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800',
-    },
-    {
-      id: 'f0728c39-7e39-4442-a2c3-66a80df31447',
-      title: '1 Bedroom Cozy Studio',
-      location: 'Kira',
-      zone: 'Kito Zone',
-      price: 550000,
-      priceFormatted: '550,000 UGX',
-      image: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800',
-    },
-  ]
+  // Extract unique locations dynamically from database rows
+  const dbLocations = Array.from(new Set(properties.map((p) => p.location).filter(Boolean)))
+  const locations = ['All Locations', ...dbLocations]
 
-  // Dynamic filter logic
-  const filteredProperties = sampleProperties.filter((prop) => {
+  // Filter logic
+  const filteredProperties = properties.filter((prop) => {
     const matchesLocation =
-      selectedLocation === 'All Locations' || prop.location.toLowerCase() === selectedLocation.toLowerCase()
+      selectedLocation === 'All Locations' ||
+      prop.location?.toLowerCase() === selectedLocation.toLowerCase()
     const matchesBudget = prop.price <= maxBudget
     return matchesLocation && matchesBudget
   })
-
-  const locations = ['All Locations', 'Sonde', 'Kyaliwajala', 'Kira']
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -151,7 +151,7 @@ export default function HomePage() {
             <input
               type="range"
               min="300000"
-              max="3000000"
+              max="5000000"
               step="50000"
               value={maxBudget}
               onChange={(e) => setMaxBudget(Number(e.target.value))}
@@ -160,8 +160,12 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Property Grid */}
-        {filteredProperties.length === 0 ? (
+        {/* Dynamic Property Grid */}
+        {propertiesLoading ? (
+          <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm text-xs font-semibold text-gray-400">
+            Fetching properties from database...
+          </div>
+        ) : filteredProperties.length === 0 ? (
           <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm space-y-2">
             <h3 className="text-sm font-bold text-gray-900">No properties found</h3>
             <p className="text-xs text-gray-400">
@@ -170,7 +174,7 @@ export default function HomePage() {
             <button
               onClick={() => {
                 setSelectedLocation('All Locations')
-                setMaxBudget(3000000)
+                setMaxBudget(5000000)
               }}
               className="mt-2 text-xs font-bold text-emerald-600 hover:underline cursor-pointer"
             >
@@ -187,12 +191,12 @@ export default function HomePage() {
                 <div>
                   <div className="relative h-52 w-full overflow-hidden bg-gray-100">
                     <img
-                      src={prop.image}
+                      src={prop.image_url || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800'}
                       alt={prop.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                     />
                     <span className="absolute top-4 left-4 bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-sm">
-                      {prop.location}
+                      {prop.location || 'Kampala'}
                     </span>
                   </div>
 
@@ -200,7 +204,7 @@ export default function HomePage() {
                     <h3 className="font-extrabold text-gray-900 text-base tracking-tight">
                       {prop.title}
                     </h3>
-                    <p className="text-xs text-gray-400 font-medium">{prop.zone}</p>
+                    <p className="text-xs text-gray-400 font-medium">{prop.zone || 'Central'}</p>
                   </div>
                 </div>
 
@@ -210,7 +214,7 @@ export default function HomePage() {
                       Monthly Rent
                     </div>
                     <div className="text-xs font-black text-emerald-600">
-                      {prop.priceFormatted}
+                      {prop.price?.toLocaleString()} UGX
                     </div>
                   </div>
 
