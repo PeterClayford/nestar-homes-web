@@ -2,7 +2,6 @@
 
 import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
 import PropertyGallery from '../../components/PropertyGallery'
 import ViewingModal from '../../components/ViewingModal'
 
@@ -35,20 +34,46 @@ export default function PropertyDetailPage({ params }: Props) {
       const apiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_MwLDXjKZHS9E7kIA9QUYYg_kpEvN_GU'
 
       try {
-        const res = await fetch(`${baseUrl}/rest/v1/properties?id=eq.${resolvedParams.id}&select=*`, {
-          headers: {
-            'apikey': apiKey,
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
+        const res = await fetch(
+          `${baseUrl}/rest/v1/properties?id=eq.${resolvedParams.id}&select=id,title,town_name,village_name,description,rent_amount,currency,status,images,created_at`,
+          {
+            headers: {
+              'apikey': apiKey,
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json'
+            }
           }
-        })
+        )
 
         if (res.ok) {
           const data: Property[] = await res.json()
-          if (data.length > 0) setProperty(data[0])
+          if (data.length > 0) {
+            let fetchedImages = data[0].images
+
+            // Format Postgres string representation to JS Array if stored as a string
+            if (typeof fetchedImages === 'string') {
+              try {
+                fetchedImages = JSON.parse(fetchedImages)
+              } catch {
+                fetchedImages = [fetchedImages]
+              }
+            }
+
+            // Fallback placeholder if no images are stored in DB
+            if (!Array.isArray(fetchedImages) || fetchedImages.length === 0) {
+              fetchedImages = [
+                'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80'
+              ]
+            }
+
+            setProperty({
+              ...data[0],
+              images: fetchedImages
+            })
+          }
         }
       } catch (err) {
-        console.error('Fetch error:', err)
+        console.error('Error fetching property images:', err)
       } finally {
         setLoading(false)
       }
@@ -60,7 +85,7 @@ export default function PropertyDetailPage({ params }: Props) {
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-50 p-12 flex items-center justify-center">
-        <p className="text-sm font-semibold text-slate-400 animate-pulse">Loading listing details...</p>
+        <p className="text-sm font-semibold text-slate-400 animate-pulse">Loading listing details & gallery...</p>
       </main>
     )
   }
@@ -85,7 +110,7 @@ export default function PropertyDetailPage({ params }: Props) {
       </div>
 
       <article className="max-w-4xl mx-auto bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
-        <PropertyGallery images={property.images || []} title={property.title} town={property.town_name} />
+        <PropertyGallery images={property.images} title={property.title} town={property.town_name} />
 
         <div className="p-6 md:p-10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-6 mb-6">
