@@ -38,7 +38,6 @@ export default function HomePage() {
       if (!error && data && data.length > 0) {
         setProperties(data)
       } else {
-        // Safe fallback mock listings if table is empty
         setProperties([
           {
             id: 'ceb47f2b-1105-4624-9cb7-8d85e9474e79',
@@ -175,7 +174,7 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProperties.map((property) => {
+            {filteredProperties.map((property, idx) => {
               const displayLocation = property.town_name || property.location || 'Uganda'
               const displaySub = property.village_name || property.address || ''
               const displayPrice = property.rent_amount ?? property.price ?? 0
@@ -192,6 +191,8 @@ export default function HomePage() {
                       src={imgUrl}
                       alt={property.title}
                       fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      priority={idx === 0}
                       className="object-cover"
                     />
                     <span className="absolute top-3 left-3 bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm">
