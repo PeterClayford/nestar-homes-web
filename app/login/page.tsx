@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -20,6 +20,25 @@ export default function AuthPage() {
   const searchParams = useSearchParams()
   const redirectTarget = searchParams.get('redirect') || '/'
   const supabase = createClient()
+
+  // Auto-redirect if user is already authenticated
+  useEffect(() => {
+    async function checkExistingSession() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        window.location.href = redirectTarget
+      }
+    }
+    checkExistingSession()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user && event === 'SIGNED_IN') {
+        window.location.href = redirectTarget
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [supabase, redirectTarget])
 
   const checkEmailExists = async (emailToCheck: string) => {
     if (!isSignUp || !emailToCheck || !emailToCheck.includes('@')) return
@@ -115,8 +134,7 @@ export default function AuthPage() {
         }
 
         if (data?.session) {
-          router.push(redirectTarget)
-          router.refresh()
+          window.location.href = redirectTarget
           return
         }
 
@@ -137,8 +155,7 @@ export default function AuthPage() {
 
         if (error) throw error
 
-        router.push(redirectTarget)
-        router.refresh()
+        window.location.href = redirectTarget
       }
     } catch (err: any) {
       const errMsg = err.message || ''
