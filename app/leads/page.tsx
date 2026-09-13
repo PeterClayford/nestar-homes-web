@@ -6,22 +6,14 @@ import { createClient } from '@/lib/supabase/client'
 
 interface ViewingLead {
   id: string
-  created_at: string
-  scheduled_date: string
-  status: string
-  payment_status: string
-  payment_phone: string
-  transaction_ref: string
-  amount_paid: number
+  property_id?: string
+  property_title: string
+  phone_number: string
+  network: string
+  amount: number
   currency: string
-  client_name?: string
-  client_phone?: string
-  properties?: {
-    title: string
-    town_name: string
-    village_name: string
-    landlord_phone?: string
-  }
+  status: string
+  created_at: string
 }
 
 export default function LeadsPage() {
@@ -35,6 +27,7 @@ export default function LeadsPage() {
     async function verifyAndFetch() {
       setLoading(true)
 
+      // 1. Role Authorization Guard (Admin & Tech Auditor only)
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         setLoading(false)
@@ -55,33 +48,16 @@ export default function LeadsPage() {
 
       setAuthorized(true)
 
+      // 2. Fetch viewing transactions cleanly matching the database schema
       const { data, error } = await supabase
         .from('viewings')
-        .select(`
-          id,
-          created_at,
-          scheduled_date,
-          status,
-          payment_status,
-          payment_phone,
-          transaction_ref,
-          amount_paid,
-          currency,
-          client_name,
-          client_phone,
-          properties (
-            title,
-            town_name,
-            village_name,
-            landlord_phone
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
 
       if (!error && data) {
         setLeads(data as ViewingLead[])
       } else {
-        console.error('Error fetching leads:', error)
+        console.error('Error fetching viewing leads:', error)
       }
       setLoading(false)
     }
@@ -133,7 +109,7 @@ export default function LeadsPage() {
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
           {leads.length === 0 ? (
             <div className="p-12 text-center text-xs font-semibold text-gray-400">
-              No verified viewing transactions recorded yet.
+              No viewing transactions recorded yet.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -141,11 +117,11 @@ export default function LeadsPage() {
                 <thead>
                   <tr className="bg-gray-50/50 border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                     <th className="py-4 px-6">Timestamp</th>
-                    <th className="py-4 px-6">Property / Location</th>
+                    <th className="py-4 px-6">Property Title</th>
                     <th className="py-4 px-6">Payment Phone</th>
-                    <th className="py-4 px-6">Tx Reference</th>
+                    <th className="py-4 px-6">Network</th>
                     <th className="py-4 px-6">Amount</th>
-                    <th className="py-4 px-6">Payment Status</th>
+                    <th className="py-4 px-6">Status</th>
                     <th className="py-4 px-6">Action</th>
                   </tr>
                 </thead>
@@ -153,36 +129,34 @@ export default function LeadsPage() {
                   {leads.map((lead) => (
                     <tr key={lead.id} className="hover:bg-gray-50/50 transition">
                       <td className="py-4 px-6 text-gray-400 font-mono text-[11px]">
-                        {new Date(lead.created_at).toLocaleString()}
+                        {lead.created_at ? new Date(lead.created_at).toLocaleString() : 'N/A'}
                       </td>
                       <td className="py-4 px-6 font-bold text-gray-900">
-                        {lead.properties?.title || 'Property Inspection'}
-                        <div className="text-[10px] font-normal text-gray-400">
-                          {lead.properties?.town_name}, {lead.properties?.village_name}
-                        </div>
+                        {lead.property_title || 'Property Inspection'}
                       </td>
                       <td className="py-4 px-6 font-mono text-gray-900 font-semibold">
-                        {lead.payment_phone || lead.client_phone || 'N/A'}
+                        {lead.phone_number || 'N/A'}
                       </td>
-                      <td className="py-4 px-6 font-mono text-[11px] text-gray-500">
-                        {lead.transaction_ref || 'PENDING_CALLBACK'}
+                      <td className="py-4 px-6">
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-700 border border-gray-200">
+                          {lead.network || 'USSD'}
+                        </span>
                       </td>
                       <td className="py-4 px-6 font-bold text-emerald-600">
-                        {lead.amount_paid ? lead.amount_paid.toLocaleString() : '10,000'} {lead.currency || 'UGX'}
+                        {lead.amount ? Number(lead.amount).toLocaleString() : '10,000'} {lead.currency || 'UGX'}
                       </td>
                       <td className="py-4 px-6">
                         <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${
-                          lead.payment_status === 'SUCCESS' || lead.payment_status === 'VERIFIED'
+                          lead.status === 'CONFIRMED' || lead.status === 'SUCCESS' || lead.status === 'COMPLETED'
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
                             : 'bg-amber-50 text-amber-700 border-amber-100'
                         }`}>
-                          {lead.payment_status || 'UNPAID'}
+                          {lead.status || 'PENDING'}
                         </span>
                       </td>
                       <td className="py-4 px-6">
                         <button
-                          disabled={lead.payment_status !== 'SUCCESS' && lead.payment_status !== 'VERIFIED'}
-                          className="px-3 py-1.5 rounded-xl text-[11px] font-bold text-white bg-gray-900 hover:bg-emerald-600 disabled:bg-gray-200 disabled:text-gray-400 transition cursor-pointer"
+                          className="px-3 py-1.5 rounded-xl text-[11px] font-bold text-white bg-gray-900 hover:bg-emerald-600 transition cursor-pointer"
                         >
                           Dispatch Contact
                         </button>
