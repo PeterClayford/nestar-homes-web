@@ -21,6 +21,8 @@ export default function NotificationBell() {
   const supabase = createClient()
 
   useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
     async function initUserAndNotifications() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
@@ -28,8 +30,8 @@ export default function NotificationBell() {
       setUserId(user.id)
       await fetchNotifications(user.id)
 
-      // Subscribe to instant realtime changes for this user
-      const channel = supabase
+      // Configure handlers first, then call subscribe()
+      channel = supabase
         .channel(`realtime-notifications-${user.id}`)
         .on(
           'postgres_changes',
@@ -59,11 +61,8 @@ export default function NotificationBell() {
             )
           }
         )
-        .subscribe()
 
-      return () => {
-        supabase.removeChannel(channel)
-      }
+      channel.subscribe()
     }
 
     initUserAndNotifications()
@@ -75,7 +74,13 @@ export default function NotificationBell() {
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      if (channel) {
+        supabase.removeChannel(channel)
+      }
+    }
   }, [supabase])
 
   const fetchNotifications = async (uid: string) => {
