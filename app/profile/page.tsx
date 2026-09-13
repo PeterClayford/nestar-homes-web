@@ -70,12 +70,15 @@ export default function ProfilePage() {
     setLoading(false)
   }
 
+  // Calculate Verification Completion Percentage dynamically
   const calculateCompletion = () => {
     if (!profile) return 0
+    if (profile.is_verified) return 100 // Fully verified accounts always hit 100%
+    
     let points = 25
     if (profile.phone_number) points += 25
     if (profile.verification_documents?.nin_number || ninInput) points += 25
-    if (profile.is_verified) points += 25
+    if (frontPreview || backPreview) points += 25
     return points
   }
 
@@ -223,7 +226,7 @@ export default function ProfilePage() {
               ></div>
             </div>
 
-            <p className="text-[11px] text-gray-400 pt-1">
+            <p className="text-[11px] text-gray-600 font-medium pt-1">
               {isApproved
                 ? 'Your identity documents have been verified and approved by Nestar Homes Administration.'
                 : completionScore >= 75
@@ -278,7 +281,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-3 text-emerald-900 font-extrabold text-sm">
                 <span>🛡️</span> Identity Verification Secured
               </div>
-              <p className="text-xs text-emerald-800 leading-relaxed">
+              <p className="text-xs text-emerald-800 leading-relaxed font-medium">
                 Your National ID credentials have been verified. For security reasons, raw identification photos are hidden from the dashboard once approved.
               </p>
               <div className="pt-2 text-[11px] font-mono text-emerald-700 font-bold">
