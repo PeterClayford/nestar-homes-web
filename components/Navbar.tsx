@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 
 interface UserProfile {
@@ -46,14 +47,26 @@ export default function Navbar() {
   }
 
   return (
-    <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
+    <header className="bg-white/95 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         
         {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <div className="font-black text-lg tracking-tight text-emerald-600">
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/logo.svg"
+            alt="Nestar Homes"
+            width={150}
+            height={40}
+            className="h-9 w-auto object-contain"
+            priority
+            onError={(e) => {
+              // Fallback to text if logo.svg missing
+              e.currentTarget.style.display = 'none'
+            }}
+          />
+          <span className="font-black text-lg tracking-tight text-emerald-600">
             NESTAR <span className="text-gray-900 font-medium">HOMES</span>
-          </div>
+          </span>
         </Link>
 
         {/* Dynamic Navigation Links */}
@@ -82,6 +95,9 @@ export default function Navbar() {
                   <Link href="/admin/users" className="hover:text-emerald-600 transition">
                     Users Panel
                   </Link>
+                  <Link href="/admin/viewings" className="hover:text-emerald-600 transition">
+                    Viewings
+                  </Link>
                   <Link href="/admin/audit-logs" className="hover:text-emerald-600 transition">
                     Audit Logs
                   </Link>
@@ -109,7 +125,7 @@ export default function Navbar() {
             ) : (
               <Link
                 href="/login"
-                className="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-800 transition"
+                className="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-800 transition shadow-sm"
               >
                 Sign In
               </Link>

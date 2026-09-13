@@ -17,8 +17,11 @@ export default function HomePage() {
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
   const [propertiesLoading, setPropertiesLoading] = useState(true)
-  const [selectedLocation, setSelectedLocation] = useState<string>('All Locations')
-  const [maxBudget, setMaxBudget] = useState<number>(3000000)
+  
+  // Dynamic search and budget slider states
+  const [searchQuery, setSearchQuery] = useState<string>('')
+  const [maxBudget, setMaxBudget] = useState<number>(5000000)
+  const [dynamicUpperLimit, setDynamicUpperLimit] = useState<number>(5000000)
 
   const supabase = createClient()
 
@@ -40,6 +43,14 @@ export default function HomePage() {
       setPropertiesLoading(true)
       const data = await getPublishedProperties(supabase)
       setProperties(data)
+
+      // Dynamically calculate the highest price in the database
+      if (data.length > 0) {
+        const highestPrice = Math.max(...data.map((p) => p.price), 5000000)
+        setDynamicUpperLimit(highestPrice)
+        setMaxBudget(highestPrice)
+      }
+
       setPropertiesLoading(false)
     }
 
@@ -52,19 +63,17 @@ export default function HomePage() {
     return () => subscription.unsubscribe()
   }, [supabase])
 
-  // Extract unique locations dynamically from normalized property records
-  const dbLocations = Array.from(
-    new Set(properties.map((p) => p.location).filter(Boolean))
-  )
-  const locations = ['All Locations', ...dbLocations]
-
-  // Dynamic filter logic using standardized properties fields
+  // Dynamic filter logic for broad text search across town, zone, and title
   const filteredProperties = properties.filter((prop) => {
-    const matchesLocation =
-      selectedLocation === 'All Locations' ||
-      prop.location.toLowerCase() === selectedLocation.toLowerCase()
+    const q = searchQuery.toLowerCase().trim()
+    const matchesSearch =
+      !q ||
+      prop.location.toLowerCase().includes(q) ||
+      prop.zone.toLowerCase().includes(q) ||
+      prop.title.toLowerCase().includes(q)
+    
     const matchesBudget = prop.price <= maxBudget
-    return matchesLocation && matchesBudget
+    return matchesSearch && matchesBudget
   })
 
   return (
@@ -103,30 +112,32 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Dynamic Location Filter & Budget Slider */}
+        {/* Global Search Input & Dynamic Budget Slider */}
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div>
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">
-              Filter By Location
+          <div className="w-full md:w-2/3">
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+              Global Search
             </div>
-            <div className="flex flex-wrap gap-2">
-              {locations.map((loc) => (
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search town, zone, or title (e.g. Kyaliwajjala, Sonde, Apartment)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
+              />
+              {searchQuery && (
                 <button
-                  key={loc}
-                  onClick={() => setSelectedLocation(loc)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    selectedLocation === loc
-                      ? 'bg-gray-900 text-white shadow-sm'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  }`}
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-3 text-xs font-bold text-gray-400 hover:text-gray-600"
                 >
-                  {loc}
+                  ✕ Clear
                 </button>
-              ))}
+              )}
             </div>
           </div>
 
-          <div>
+          <div className="w-full md:w-1/3">
             <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
               <span>Max Budget</span>
               <span className="text-emerald-600 font-extrabold text-xs">
@@ -135,12 +146,12 @@ export default function HomePage() {
             </div>
             <input
               type="range"
-              min="300000"
-              max="5000000"
+              min="100000"
+              max={dynamicUpperLimit}
               step="50000"
               value={maxBudget}
               onChange={(e) => setMaxBudget(Number(e.target.value))}
-              className="w-full md:w-64 accent-emerald-600 cursor-pointer"
+              className="w-full accent-emerald-600 cursor-pointer"
             />
           </div>
         </div>
@@ -154,16 +165,16 @@ export default function HomePage() {
           <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm space-y-2">
             <h3 className="text-sm font-bold text-gray-900">No properties found</h3>
             <p className="text-xs text-gray-400">
-              No listings match your location filter and budget range.
+              No listings match your search query and budget range.
             </p>
             <button
               onClick={() => {
-                setSelectedLocation('All Locations')
-                setMaxBudget(5000000)
+                setSearchQuery('')
+                setMaxBudget(dynamicUpperLimit)
               }}
               className="mt-2 text-xs font-bold text-emerald-600 hover:underline cursor-pointer"
             >
-              Reset Filters
+              Reset Search & Filters
             </button>
           </div>
         ) : (
