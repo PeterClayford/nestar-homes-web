@@ -57,12 +57,12 @@ export default function ProfilePage() {
     setLoading(false)
   }
 
-  // Calculate Verification Completion Percentage
+  // Calculate Precise Verification Completion Percentage
   const calculateCompletion = () => {
     if (!profile) return 0
-    let points = 25 // Account exists
-    if (profile.phone_number && profile.role !== 'client') points += 25
-    if (profile.verification_documents?.nin_number) points += 25
+    let points = 25 // Account exists & signed in
+    if (profile.phone_number) points += 25
+    if (profile.verification_documents?.nin_number || ninInput) points += 25
     if (profile.is_verified) points += 25
     return points
   }
@@ -86,7 +86,7 @@ export default function ProfilePage() {
       .eq('id', profile.id)
 
     if (!error) {
-      setMessage('NIN Details saved successfully!')
+      setMessage('NIN details updated successfully!')
       fetchProfile()
     } else {
       setMessage('Failed to update NIN details.')
@@ -106,6 +106,7 @@ export default function ProfilePage() {
   }
 
   const completionScore = calculateCompletion()
+  const isFullyVerified = profile?.is_verified && completionScore === 100
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -119,22 +120,22 @@ export default function ProfilePage() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-black text-gray-900 tracking-tight">
-                  {profile?.full_name || 'Partner Profile'}
+                  {profile?.full_name || 'User Profile'}
                 </h1>
                 <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-gray-100 text-gray-700 border border-gray-200">
-                  {profile?.role?.replace('_', ' ')}
+                  {profile?.role?.replace('_', ' ') || 'CLIENT'}
                 </span>
               </div>
               <p className="text-xs text-gray-500 mt-1">{profile?.email}</p>
             </div>
 
-            {profile?.is_verified ? (
+            {isFullyVerified ? (
               <span className="bg-emerald-600 text-white text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-wider self-start md:self-auto">
                 ✓ Fully Verified Partner
               </span>
             ) : (
               <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-wider self-start md:self-auto">
-                Verification In Progress
+                Verification Pending
               </span>
             )}
           </div>
@@ -143,7 +144,7 @@ export default function ProfilePage() {
           <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-extrabold text-gray-700 uppercase text-[10px] tracking-wider">
-                Partner Verification Status
+                Account Verification Status
               </span>
               <span className="font-black text-emerald-600">{completionScore}% Completed</span>
             </div>
@@ -160,12 +161,12 @@ export default function ProfilePage() {
                 ? 'Your account is fully verified. Your property listings carry the verified trust badge.'
                 : completionScore >= 75
                 ? 'Phase 2 complete! Upload your NIN photos below to request final Admin verification.'
-                : 'Complete Phase 1 & 2 below to increase tenant lead conversions.'}
+                : 'Complete Phase 1 & 2 below to unlock partner listing rights and trust badges.'}
             </p>
           </div>
         </div>
 
-        {/* Phase 1 & 2 Interactive Form */}
+        {/* Phase 1 & 2 Form */}
         <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
           <h2 className="text-lg font-bold text-gray-900">Tier 2: Progressive Identification</h2>
           
@@ -197,7 +198,7 @@ export default function ProfilePage() {
                 <p className="text-[10px] text-gray-400">Clear snapshot of card front</p>
                 <button
                   type="button"
-                  className="px-3 py-1.5 bg-gray-900 text-white rounded-xl text-[10px] font-bold"
+                  className="px-3 py-1.5 bg-gray-900 text-white rounded-xl text-[10px] font-bold cursor-pointer"
                 >
                   Upload Front
                 </button>
@@ -208,7 +209,7 @@ export default function ProfilePage() {
                 <p className="text-[10px] text-gray-400">Clear snapshot of card back</p>
                 <button
                   type="button"
-                  className="px-3 py-1.5 bg-gray-900 text-white rounded-xl text-[10px] font-bold"
+                  className="px-3 py-1.5 bg-gray-900 text-white rounded-xl text-[10px] font-bold cursor-pointer"
                 >
                   Upload Back
                 </button>
