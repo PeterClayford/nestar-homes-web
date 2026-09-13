@@ -28,7 +28,14 @@ export default function UserManagementPage() {
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null)
+  const [notifyUser, setNotifyUser] = useState<UserProfile | null>(null)
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
+
+  // Notification form state
+  const [notifTitle, setNotifTitle] = useState('')
+  const [notifBody, setNotifBody] = useState('')
+  const [notifLink, setNotifLink] = useState('')
+  const [sendingNotif, setSendingNotif] = useState(false)
 
   const supabase = createClient()
 
@@ -80,6 +87,33 @@ export default function UserManagementPage() {
     setUpdatingId(null)
   }
 
+  const handleSendNotification = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!notifyUser || !notifTitle.trim() || !notifBody.trim()) return
+
+    setSendingNotif(true)
+    const { error } = await supabase.from('notifications').insert({
+      user_id: notifyUser.id,
+      title: notifTitle.trim(),
+      message: notifBody.trim(),
+      link: notifLink.trim() || null,
+    })
+
+    if (!error) {
+      setMessage({
+        type: 'success',
+        text: `Notification sent successfully to ${notifyUser.full_name || notifyUser.email}`,
+      })
+      setNotifyUser(null)
+      setNotifTitle('')
+      setNotifBody('')
+      setNotifLink('')
+    } else {
+      setMessage({ type: 'error', text: `Failed to send notification: ${error.message}` })
+    }
+    setSendingNotif(false)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       <Navbar />
@@ -93,7 +127,7 @@ export default function UserManagementPage() {
               Account Governance & Partner Verification
             </h1>
             <p className="text-xs text-gray-500 mt-1">
-              Review partner upgrade applications, inspect National ID (NIN) photos, and grant verified status
+              Review partner upgrade applications, inspect National ID (NIN) photos, and push system notifications
             </p>
           </div>
           <button
@@ -140,7 +174,10 @@ export default function UserManagementPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
                   {users.map((u) => {
-                    const hasDocs = u.verification_documents?.nin_number || u.verification_documents?.nin_front_url || u.verification_documents?.notes
+                    const hasDocs =
+                      u.verification_documents?.nin_number ||
+                      u.verification_documents?.nin_front_url ||
+                      u.verification_documents?.notes
 
                     return (
                       <tr key={u.id} className="hover:bg-gray-50/50 transition">
@@ -159,7 +196,12 @@ export default function UserManagementPage() {
                             value={u.role}
                             disabled={updatingId === u.id}
                             onChange={(e) =>
-                              updateUser(u.id, e.target.value as UserProfile['role'], u.status, u.is_verified)
+                              updateUser(
+                                u.id,
+                                e.target.value as UserProfile['role'],
+                                u.status,
+                                u.is_verified
+                              )
                             }
                             className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                           >
@@ -178,7 +220,12 @@ export default function UserManagementPage() {
                             value={u.status}
                             disabled={updatingId === u.id}
                             onChange={(e) =>
-                              updateUser(u.id, u.role, e.target.value as UserProfile['status'], u.is_verified)
+                              updateUser(
+                                u.id,
+                                u.role,
+                                e.target.value as UserProfile['status'],
+                                u.is_verified
+                              )
                             }
                             className={`px-3 py-1.5 rounded-xl border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer ${
                               u.status === 'active'
@@ -209,8 +256,15 @@ export default function UserManagementPage() {
                           )}
                         </td>
 
-                        {/* Verified Toggle */}
-                        <td className="py-4 px-6 text-right">
+                        {/* Actions: Notification & Verification Toggle */}
+                        <td className="py-4 px-6 text-right space-x-2">
+                          <button
+                            onClick={() => setNotifyUser(u)}
+                            className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-[10px] font-extrabold transition cursor-pointer"
+                          >
+                            🔔 Alert
+                          </button>
+
                           <button
                             onClick={() => updateUser(u.id, u.role, u.status, !u.is_verified)}
                             disabled={updatingId === u.id}
@@ -234,6 +288,88 @@ export default function UserManagementPage() {
         </div>
 
       </main>
+
+      {/* Dispatch Notification Modal */}
+      {notifyUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-gray-900">Push User Notification</h3>
+                <p className="text-xs text-gray-500">
+                  Recipient: <strong>{notifyUser.full_name || notifyUser.email}</strong>
+                </p>
+              </div>
+              <button
+                onClick={() => setNotifyUser(null)}
+                className="text-gray-400 hover:text-gray-600 font-bold text-sm cursor-pointer"
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <form onSubmit={handleSendNotification} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Notification Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={notifTitle}
+                  onChange={(e) => setNotifTitle(e.target.value)}
+                  placeholder="e.g. Identity Verification Approved! 🎉"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Message Body
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={notifBody}
+                  onChange={(e) => setNotifBody(e.target.value)}
+                  placeholder="e.g. Your National ID document has been reviewed. You can now list properties."
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50 resize-none"
+                ></textarea>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Target Link (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={notifLink}
+                  onChange={(e) => setNotifLink(e.target.value)}
+                  placeholder="e.g. /profile or /submit"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setNotifyUser(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={sendingNotif}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white rounded-xl text-xs font-extrabold transition cursor-pointer"
+                >
+                  {sendingNotif ? 'Sending...' : 'Dispatch Alert'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* National ID Inspection Modal */}
       {selectedUser && (
