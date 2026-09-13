@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
 
-export default function AuthPage() {
+function AuthForm() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -142,7 +143,7 @@ export default function AuthPage() {
           type: 'success',
           text: 'Account created! Please check your inbox to confirm your email.',
         })
-        
+
         setFullName('')
         setPassword('')
         setIsSignUp(false)
@@ -159,7 +160,7 @@ export default function AuthPage() {
       }
     } catch (err: any) {
       const errMsg = err.message || ''
-      
+
       if (errMsg.toLowerCase().includes('email not confirmed')) {
         setMessage({
           type: 'error',
@@ -182,9 +183,9 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 tracking-tight">
           {isSignUp ? 'Create your Nestar Account' : 'Sign in to Nestar Homes'}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
@@ -196,7 +197,7 @@ export default function AuthPage() {
               setMessage(null)
               setShowResendOptions(false)
             }}
-            className="font-semibold text-emerald-600 hover:text-emerald-500 focus:outline-none underline"
+            className="font-semibold text-emerald-600 hover:text-emerald-500 focus:outline-none underline cursor-pointer"
           >
             {isSignUp ? 'Sign In' : 'Sign Up'}
           </button>
@@ -214,7 +215,7 @@ export default function AuthPage() {
               }`}
             >
               <div>{message.text}</div>
-              
+
               {showResendOptions && (
                 <div className="flex items-center gap-2 pt-1">
                   <button
@@ -249,7 +250,7 @@ export default function AuthPage() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="e.g. Tirirayo Peter"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition outline-none"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition outline-none bg-gray-50/50"
                 />
               </div>
             )}
@@ -266,7 +267,7 @@ export default function AuthPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 onBlur={() => checkEmailExists(email)}
                 placeholder="name@example.com"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition outline-none"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition outline-none bg-gray-50/50"
               />
             </div>
 
@@ -281,7 +282,7 @@ export default function AuthPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 onFocus={() => checkEmailExists(email)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition outline-none"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition outline-none bg-gray-50/50"
               />
             </div>
 
@@ -302,5 +303,22 @@ export default function AuthPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AuthPage() {
+  return (
+    <>
+      <Navbar />
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-gray-50 flex items-center justify-center text-xs font-semibold text-gray-400">
+            Loading authentication module...
+          </div>
+        }
+      >
+        <AuthForm />
+      </Suspense>
+    </>
   )
 }

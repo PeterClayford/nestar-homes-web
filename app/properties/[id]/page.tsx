@@ -49,7 +49,7 @@ export default function PropertyDetailPage({ params }: Props) {
         if (res.ok) {
           const data: Property[] = await res.json()
           if (data.length > 0) {
-            let fetchedImages = data[0].images
+            let fetchedImages: any = data[0].images
 
             if (typeof fetchedImages === 'string') {
               try {
