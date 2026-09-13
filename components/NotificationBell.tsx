@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { RealtimeChannel } from '@supabase/supabase-js'
 
 interface NotificationItem {
   id: string
@@ -21,7 +22,7 @@ export default function NotificationBell() {
   const supabase = createClient()
 
   useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel> | null = null
+    let activeChannel: RealtimeChannel | null = null
 
     async function initUserAndNotifications() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -30,9 +31,11 @@ export default function NotificationBell() {
       setUserId(user.id)
       await fetchNotifications(user.id)
 
-      // Configure handlers first, then call subscribe()
-      channel = supabase
-        .channel(`realtime-notifications-${user.id}`)
+      // Dynamic channel topic prevents re-subscribing errors during React HMR
+      const channelTopic = `notifs-${user.id}-${Date.now()}`
+
+      activeChannel = supabase
+        .channel(channelTopic)
         .on(
           'postgres_changes',
           {
@@ -62,7 +65,7 @@ export default function NotificationBell() {
           }
         )
 
-      channel.subscribe()
+      activeChannel.subscribe()
     }
 
     initUserAndNotifications()
@@ -77,8 +80,8 @@ export default function NotificationBell() {
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
-      if (channel) {
-        supabase.removeChannel(channel)
+      if (activeChannel) {
+        supabase.removeChannel(activeChannel)
       }
     }
   }, [supabase])
