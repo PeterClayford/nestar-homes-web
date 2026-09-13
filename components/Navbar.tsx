@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
+import NotificationBell from '@/components/NotificationBell'
 
 interface UserProfile {
   id: string
@@ -26,7 +27,7 @@ export default function Navbar() {
           .select('id, email, role, status')
           .eq('id', user.id)
           .single()
-        
+
         if (data) setProfile(data as UserProfile)
       }
       setLoading(false)
@@ -49,7 +50,7 @@ export default function Navbar() {
   return (
     <header className="bg-white/95 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        
+
         {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-3">
           <Image
@@ -60,7 +61,6 @@ export default function Navbar() {
             className="h-9 w-auto object-contain"
             priority
             onError={(e) => {
-              // Fallback to text if logo.svg missing
               e.currentTarget.style.display = 'none'
             }}
           />
@@ -113,15 +113,18 @@ export default function Navbar() {
             </>
           )}
 
-          {/* Authentication State */}
+          {/* Authentication State & Notification Bell */}
           {!loading && (
             profile ? (
-              <button
-                onClick={handleSignOut}
-                className="text-gray-400 hover:text-red-600 transition cursor-pointer"
-              >
-                Sign Out
-              </button>
+              <div className="flex items-center gap-3 border-l border-gray-100 pl-3">
+                <NotificationBell />
+                <button
+                  onClick={handleSignOut}
+                  className="text-gray-400 hover:text-red-600 transition cursor-pointer"
+                >
+                  Sign Out
+                </button>
+              </div>
             ) : (
               <Link
                 href="/login"
