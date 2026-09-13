@@ -17,11 +17,20 @@ export default function UpgradeAccountPage() {
   const [ninNumber, setNinNumber] = useState('')
   const [businessName, setBusinessName] = useState('')
   
-  // Mandatory legal compliance checkbox state
   const [agreedToTerms, setAgreedToTerms] = useState(false)
 
   const supabase = createClient()
   const router = useRouter()
+
+  // Phone Validation Logic for Ugandan Numbers (MTN/Airtel)
+  const validateUgandanPhone = (phone: string): boolean => {
+    const cleaned = phone.trim().replace(/\s+/g, '')
+    // Accepts 10 digits starting with 07 (e.g., 077... or 070...)
+    // OR 12 digits starting with 2567
+    const localRegex = /^07\d{8}$/
+    const intlRegex = /^2567\d{8}$/
+    return localRegex.test(cleaned) || intlRegex.test(cleaned)
+  }
 
   useEffect(() => {
     async function loadUserProfile() {
@@ -54,12 +63,21 @@ export default function UpgradeAccountPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Explicit Validation Check for Mandatory Fields
-    if (!fullName.trim() || !phoneNumber.trim() || !ninNumber.trim()) {
+    const cleanedPhone = phoneNumber.trim().replace(/\s+/g, '')
+
+    // 1. Mandatory Fields Check
+    if (!fullName.trim() || !cleanedPhone || !ninNumber.trim()) {
       setErrorMsg('Full Name, Mobile Money Phone Number, and National ID (NIN) are required.')
       return
     }
 
+    // 2. Ugandan Phone Number Format & Length Validation
+    if (!validateUgandanPhone(cleanedPhone)) {
+      setErrorMsg('Invalid phone number format. Please enter a valid 10-digit number starting with 07 (e.g., 0777699468) or 12-digit number starting with 2567.')
+      return
+    }
+
+    // 3. Terms Check
     if (!agreedToTerms) {
       setErrorMsg('You must agree to the legal declaration before submitting.')
       return
@@ -83,7 +101,7 @@ export default function UpgradeAccountPage() {
       .from('profiles')
       .update({
         full_name: fullName.trim(),
-        phone_number: phoneNumber.trim(),
+        phone_number: cleanedPhone,
         role: selectedRole,
         verification_documents: updatedDocs,
         status_reason: `Partner Application submitted for ${selectedRole.toUpperCase()} (NIN: ${ninNumber.trim()}, Business: ${businessName || 'N/A'}, Terms Signed: YES)`,
@@ -111,7 +129,8 @@ export default function UpgradeAccountPage() {
     )
   }
 
-  const isFormValid = fullName.trim() !== '' && phoneNumber.trim() !== '' && ninNumber.trim() !== '' && agreedToTerms
+  const isPhoneValid = validateUgandanPhone(phoneNumber)
+  const isFormValid = fullName.trim() !== '' && isPhoneValid && ninNumber.trim() !== '' && agreedToTerms
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -190,22 +209,33 @@ export default function UpgradeAccountPage() {
                 />
               </div>
 
-              {/* Phone Number */}
+              {/* Mobile Money Phone Number */}
               <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                  Mobile Money Phone Number <span className="text-rose-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    Mobile Money Phone Number <span className="text-rose-500">*</span>
+                  </label>
+                  {phoneNumber && !isPhoneValid && (
+                    <span className="text-[10px] font-bold text-rose-500">
+                      Must start with 07 (10 digits) or 2567 (12 digits)
+                    </span>
+                  )}
+                </div>
                 <input
                   type="tel"
                   required
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="e.g. 0777699468"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
+                  placeholder="e.g. 0777699468 or 256705485667"
+                  className={`w-full px-4 py-3 rounded-xl border text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 bg-gray-50/50 ${
+                    phoneNumber && !isPhoneValid
+                      ? 'border-rose-300 focus:ring-rose-500'
+                      : 'border-gray-200 focus:ring-emerald-600'
+                  }`}
                 />
               </div>
 
-              {/* Business Name (Optional) */}
+              {/* Business Name */}
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
                   Business / Agency Name <span className="text-gray-400 font-normal">(Optional)</span>
