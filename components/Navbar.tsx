@@ -95,7 +95,7 @@ export default function Navbar() {
                   <Link href="/admin/users" className="hover:text-emerald-600 transition">
                     Users Panel
                   </Link>
-                  <Link href="/admin/viewings" className="hover:text-emerald-600 transition">
+                  <Link href="/leads" className="hover:text-emerald-600 transition">
                     Viewings
                   </Link>
                   <Link href="/admin/audit-logs" className="hover:text-emerald-600 transition">
