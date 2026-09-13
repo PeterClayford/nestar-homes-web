@@ -16,6 +16,9 @@ export default function UpgradeAccountPage() {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [ninNumber, setNinNumber] = useState('')
   const [businessName, setBusinessName] = useState('')
+  
+  // Mandatory legal compliance checkbox state
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
 
   const supabase = createClient()
   const router = useRouter()
@@ -31,13 +34,16 @@ export default function UpgradeAccountPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, phone_number, role')
+        .select('full_name, phone_number, role, verification_documents')
         .eq('id', user.id)
         .single()
 
       if (profile) {
         if (profile.full_name) setFullName(profile.full_name)
         if (profile.phone_number) setPhoneNumber(profile.phone_number)
+        if (profile.verification_documents?.nin_number) {
+          setNinNumber(profile.verification_documents.nin_number)
+        }
       }
       setLoading(false)
     }
@@ -47,6 +53,18 @@ export default function UpgradeAccountPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Explicit Validation Check for Mandatory Fields
+    if (!fullName.trim() || !phoneNumber.trim() || !ninNumber.trim()) {
+      setErrorMsg('Full Name, Mobile Money Phone Number, and National ID (NIN) are required.')
+      return
+    }
+
+    if (!agreedToTerms) {
+      setErrorMsg('You must agree to the legal declaration before submitting.')
+      return
+    }
+
     setSubmitting(true)
     setErrorMsg('')
 
@@ -57,14 +75,18 @@ export default function UpgradeAccountPage() {
       return
     }
 
-    // Submit application by updating profile verification metadata and target role request
+    const updatedDocs = {
+      nin_number: ninNumber.trim(),
+    }
+
     const { error } = await supabase
       .from('profiles')
       .update({
-        full_name: fullName,
-        phone_number: phoneNumber,
+        full_name: fullName.trim(),
+        phone_number: phoneNumber.trim(),
         role: selectedRole,
-        status_reason: `Partner Application submitted for ${selectedRole.toUpperCase()} (NIN: ${ninNumber || 'N/A'}, Business: ${businessName || 'N/A'})`,
+        verification_documents: updatedDocs,
+        status_reason: `Partner Application submitted for ${selectedRole.toUpperCase()} (NIN: ${ninNumber.trim()}, Business: ${businessName || 'N/A'}, Terms Signed: YES)`,
         updated_at: new Date().toISOString(),
       })
       .eq('id', user.id)
@@ -89,6 +111,8 @@ export default function UpgradeAccountPage() {
     )
   }
 
+  const isFormValid = fullName.trim() !== '' && phoneNumber.trim() !== '' && ninNumber.trim() !== '' && agreedToTerms
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       <Navbar />
@@ -111,7 +135,7 @@ export default function UpgradeAccountPage() {
                 Application Submitted Successfully!
               </h3>
               <p className="text-xs text-emerald-700 leading-relaxed">
-                Your profile has been updated to <strong className="uppercase">{selectedRole}</strong>. You can now start listing verified properties across Kampala & Wakiso.
+                Your profile has been updated to <strong className="uppercase">{selectedRole}</strong>. You can now proceed to list verified properties across Kampala & Wakiso.
               </p>
               <button
                 onClick={() => router.push('/')}
@@ -131,7 +155,7 @@ export default function UpgradeAccountPage() {
               {/* Role Selection Tabs */}
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-                  Select Partner Role
+                  Select Partner Role <span className="text-rose-500">*</span>
                 </label>
                 <div className="grid grid-cols-3 gap-3">
                   {(['landlord', 'property_manager', 'broker'] as const).map((role) => (
@@ -154,14 +178,14 @@ export default function UpgradeAccountPage() {
               {/* Full Name */}
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                  Full Name / Contact Person
+                  Full Name / Contact Person <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Peter Tirirayo"
+                  placeholder="e.g. Peter Anderson"
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
                 />
               </div>
@@ -169,7 +193,7 @@ export default function UpgradeAccountPage() {
               {/* Phone Number */}
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                  Mobile Money Phone Number
+                  Mobile Money Phone Number <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="tel"
@@ -184,7 +208,7 @@ export default function UpgradeAccountPage() {
               {/* Business Name (Optional) */}
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                  Business / Agency Name (Optional)
+                  Business / Agency Name <span className="text-gray-400 font-normal">(Optional)</span>
                 </label>
                 <input
                   type="text"
@@ -198,10 +222,11 @@ export default function UpgradeAccountPage() {
               {/* NIN Identification */}
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                  National ID (NIN) / Identification Number
+                  National ID (NIN) / Identification Number <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
+                  required
                   value={ninNumber}
                   onChange={(e) => setNinNumber(e.target.value)}
                   placeholder="e.g. CM12345678910"
@@ -209,11 +234,27 @@ export default function UpgradeAccountPage() {
                 />
               </div>
 
+              {/* Legal Declaration Checkbox Requirement */}
+              <div className="pt-2">
+                <label className="flex items-start gap-3 p-4 rounded-2xl border border-gray-200 bg-gray-50/50 hover:bg-gray-100/50 transition cursor-pointer">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded accent-emerald-600 border-gray-300 focus:ring-emerald-500 cursor-pointer"
+                  />
+                  <span className="text-xs text-gray-700 font-medium leading-relaxed">
+                    I agree that the information provided is accurate and I own or manage the listed properties legally. <span className="text-rose-500">*</span>
+                  </span>
+                </label>
+              </div>
+
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={submitting}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-extrabold text-xs py-3.5 rounded-xl transition shadow-sm cursor-pointer mt-4"
+                disabled={submitting || !isFormValid}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-extrabold text-xs py-3.5 rounded-xl transition shadow-sm cursor-pointer mt-2"
               >
                 {submitting ? 'Submitting Application...' : 'Submit Partner Application'}
               </button>
