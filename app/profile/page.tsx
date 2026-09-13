@@ -27,11 +27,9 @@ export default function ProfilePage() {
   const [ninInput, setNinInput] = useState('')
   const [message, setMessage] = useState('')
 
-  // Preview states for uploaded/captured ID images
   const [frontPreview, setFrontPreview] = useState<string | null>(null)
   const [backPreview, setBackPreview] = useState<string | null>(null)
 
-  // Camera capture modal states
   const [cameraActive, setCameraActive] = useState<'front' | 'back' | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -72,17 +70,15 @@ export default function ProfilePage() {
     setLoading(false)
   }
 
-  // Calculate Verification Completion Percentage
   const calculateCompletion = () => {
     if (!profile) return 0
-    let points = 25 // Account signed in
+    let points = 25
     if (profile.phone_number) points += 25
     if (profile.verification_documents?.nin_number || ninInput) points += 25
     if (profile.is_verified) points += 25
     return points
   }
 
-  // Handle standard File Selection (Upload from device)
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, side: 'front' | 'back') => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -95,7 +91,6 @@ export default function ProfilePage() {
     reader.readAsDataURL(file)
   }
 
-  // Open Native Web Camera Stream
   const startCamera = async (side: 'front' | 'back') => {
     setCameraActive(side)
     try {
@@ -113,7 +108,6 @@ export default function ProfilePage() {
     }
   }
 
-  // Capture Photo Frame from Camera Stream
   const capturePhoto = () => {
     if (!videoRef.current || !cameraActive) return
 
@@ -130,7 +124,6 @@ export default function ProfilePage() {
     stopCamera()
   }
 
-  // Close & Cleanup Camera Stream
   const stopCamera = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop())
@@ -180,7 +173,7 @@ export default function ProfilePage() {
   }
 
   const completionScore = calculateCompletion()
-  const isFullyVerified = profile?.is_verified && completionScore === 100
+  const isApproved = profile?.is_verified
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -203,7 +196,7 @@ export default function ProfilePage() {
               <p className="text-xs text-gray-500 mt-1">{profile?.email}</p>
             </div>
 
-            {isFullyVerified ? (
+            {isApproved ? (
               <span className="bg-emerald-600 text-white text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-wider self-start md:self-auto">
                 ✓ Fully Verified Partner
               </span>
@@ -231,10 +224,10 @@ export default function ProfilePage() {
             </div>
 
             <p className="text-[11px] text-gray-400 pt-1">
-              {completionScore === 100
-                ? 'Your account is fully verified. Your property listings carry the verified trust badge.'
+              {isApproved
+                ? 'Your identity documents have been verified and approved by Nestar Homes Administration.'
                 : completionScore >= 75
-                ? 'Phase 2 complete! Upload or snap your NIN photos below for final Admin review.'
+                ? 'Phase 2 complete! Your uploaded ID is currently under Admin review.'
                 : 'Complete Phase 1 & 2 below to unlock partner listing rights and trust badges.'}
             </p>
           </div>
@@ -275,122 +268,137 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Tier 2 ID Submission Form */}
+        {/* Tier 2 ID Submission Form OR Approved Locked View */}
         <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
           <h2 className="text-lg font-bold text-gray-900">Tier 2: Progressive Identification</h2>
           
-          {message && (
-            <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3 rounded-xl font-semibold">
-              {message}
+          {isApproved ? (
+            /* Post-Approval Clean State: Upload UI is hidden for privacy & security */
+            <div className="bg-emerald-50/60 border border-emerald-100 p-6 rounded-2xl space-y-3">
+              <div className="flex items-center gap-3 text-emerald-900 font-extrabold text-sm">
+                <span>🛡️</span> Identity Verification Secured
+              </div>
+              <p className="text-xs text-emerald-800 leading-relaxed">
+                Your National ID credentials have been verified. For security reasons, raw identification photos are hidden from the dashboard once approved.
+              </p>
+              <div className="pt-2 text-[11px] font-mono text-emerald-700 font-bold">
+                Registered NIN: {ninInput ? `${ninInput.slice(0, 4)}****${ninInput.slice(-4)}` : 'VERIFIED'}
+              </div>
             </div>
+          ) : (
+            /* Unapproved State: Active Upload & Camera Interface */
+            <form onSubmit={handleSaveVerification} className="space-y-6">
+              {message && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3 rounded-xl font-semibold">
+                  {message}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  National Identification Number (NIN)
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={ninInput}
+                  onChange={(e) => setNinInput(e.target.value)}
+                  placeholder="e.g. CM12345678910"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Card Front Block */}
+                <div className="p-5 border-2 border-dashed border-gray-200 rounded-2xl text-center space-y-3 bg-gray-50/50">
+                  <div className="text-xs font-bold text-gray-800">NIN Card Front Photo</div>
+
+                  {frontPreview ? (
+                    <div className="relative h-32 rounded-xl overflow-hidden border border-gray-200">
+                      <img src={frontPreview} alt="NIN Front" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setFrontPreview(null)}
+                        className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md font-bold"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-gray-400">Upload image file or snap live with camera</p>
+                  )}
+
+                  <div className="flex items-center justify-center gap-2 pt-1">
+                    <label className="bg-gray-900 hover:bg-gray-800 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold cursor-pointer transition">
+                      📁 Choose File
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileSelect(e, 'front')}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => startCamera('front')}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold transition"
+                    >
+                      📷 Use Camera
+                    </button>
+                  </div>
+                </div>
+
+                {/* Card Back Block */}
+                <div className="p-5 border-2 border-dashed border-gray-200 rounded-2xl text-center space-y-3 bg-gray-50/50">
+                  <div className="text-xs font-bold text-gray-800">NIN Card Back Photo</div>
+
+                  {backPreview ? (
+                    <div className="relative h-32 rounded-xl overflow-hidden border border-gray-200">
+                      <img src={backPreview} alt="NIN Back" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setBackPreview(null)}
+                        className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md font-bold"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-gray-400">Upload image file or snap live with camera</p>
+                  )}
+
+                  <div className="flex items-center justify-center gap-2 pt-1">
+                    <label className="bg-gray-900 hover:bg-gray-800 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold cursor-pointer transition">
+                      📁 Choose File
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileSelect(e, 'back')}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => startCamera('back')}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold transition"
+                    >
+                      📷 Use Camera
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+
+              <button
+                type="submit"
+                disabled={uploading}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-extrabold text-xs py-3.5 rounded-xl transition shadow-sm cursor-pointer mt-4"
+              >
+                {uploading ? 'Updating Profile...' : 'Save Verification Details'}
+              </button>
+            </form>
           )}
-
-          <form onSubmit={handleSaveVerification} className="space-y-6">
-            <div>
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-                National Identification Number (NIN)
-              </label>
-              <input
-                type="text"
-                required
-                value={ninInput}
-                onChange={(e) => setNinInput(e.target.value)}
-                placeholder="e.g. CM12345678910"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
-              />
-            </div>
-
-            {/* Flexible Photo Upload/Camera Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Card Front Block */}
-              <div className="p-5 border-2 border-dashed border-gray-200 rounded-2xl text-center space-y-3 bg-gray-50/50">
-                <div className="text-xs font-bold text-gray-800">NIN Card Front Photo</div>
-
-                {frontPreview ? (
-                  <div className="relative h-32 rounded-xl overflow-hidden border border-gray-200">
-                    <img src={frontPreview} alt="NIN Front" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setFrontPreview(null)}
-                      className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md font-bold"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <p className="text-[10px] text-gray-400">Upload image file or snap live with camera</p>
-                )}
-
-                <div className="flex items-center justify-center gap-2 pt-1">
-                  <label className="bg-gray-900 hover:bg-gray-800 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold cursor-pointer transition">
-                    📁 Choose File
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileSelect(e, 'front')}
-                      className="hidden"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => startCamera('front')}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold transition"
-                  >
-                    📷 Use Camera
-                  </button>
-                </div>
-              </div>
-
-              {/* Card Back Block */}
-              <div className="p-5 border-2 border-dashed border-gray-200 rounded-2xl text-center space-y-3 bg-gray-50/50">
-                <div className="text-xs font-bold text-gray-800">NIN Card Back Photo</div>
-
-                {backPreview ? (
-                  <div className="relative h-32 rounded-xl overflow-hidden border border-gray-200">
-                    <img src={backPreview} alt="NIN Back" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setBackPreview(null)}
-                      className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md font-bold"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <p className="text-[10px] text-gray-400">Upload image file or snap live with camera</p>
-                )}
-
-                <div className="flex items-center justify-center gap-2 pt-1">
-                  <label className="bg-gray-900 hover:bg-gray-800 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold cursor-pointer transition">
-                    📁 Choose File
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileSelect(e, 'back')}
-                      className="hidden"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => startCamera('back')}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold transition"
-                  >
-                    📷 Use Camera
-                  </button>
-                </div>
-              </div>
-
-            </div>
-
-            <button
-              type="submit"
-              disabled={uploading}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-extrabold text-xs py-3.5 rounded-xl transition shadow-sm cursor-pointer mt-4"
-            >
-              {uploading ? 'Updating Profile...' : 'Save Verification Details'}
-            </button>
-          </form>
         </div>
 
       </main>
