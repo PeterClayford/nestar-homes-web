@@ -8,8 +8,11 @@ import { getPublishedProperties, Property } from '@/lib/db/properties'
 
 interface UserProfile {
   id: string
+  email: string
+  full_name?: string
   role: 'client' | 'landlord' | 'property_manager' | 'broker' | 'admin' | 'tech_auditor'
   status: string
+  is_verified?: boolean
 }
 
 export default function HomePage() {
@@ -17,7 +20,7 @@ export default function HomePage() {
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
   const [propertiesLoading, setPropertiesLoading] = useState(true)
-  
+
   // Dynamic search and budget slider states
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [maxBudget, setMaxBudget] = useState<number>(5000000)
@@ -27,12 +30,12 @@ export default function HomePage() {
 
   useEffect(() => {
     async function fetchData() {
-      // 1. Fetch User Session Profile
+      // 1. Fetch User Session Profile matching public.profiles DDL
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data } = await supabase
           .from('profiles')
-          .select('id, role, status')
+          .select('id, email, full_name, role, status, is_verified')
           .eq('id', user.id)
           .single()
         if (data) setProfile(data as UserProfile)
@@ -63,6 +66,13 @@ export default function HomePage() {
     return () => subscription.unsubscribe()
   }, [supabase])
 
+  // Extract first name dynamically from full_name or email fallback
+  const firstName = profile?.full_name
+    ? profile.full_name.trim().split(' ')[0]
+    : profile?.email
+    ? profile.email.split('@')[0]
+    : 'User'
+
   // Dynamic filter logic for broad text search across town, zone, and title
   const filteredProperties = properties.filter((prop) => {
     const q = searchQuery.toLowerCase().trim()
@@ -71,24 +81,50 @@ export default function HomePage() {
       prop.location.toLowerCase().includes(q) ||
       prop.zone.toLowerCase().includes(q) ||
       prop.title.toLowerCase().includes(q)
-    
+
     const matchesBudget = prop.price <= maxBudget
     return matchesSearch && matchesBudget
   })
+
+  // Role Badge Helper Utility
+  const renderRoleBadge = (role: string) => {
+    switch (role) {
+      case 'landlord':
+        return <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">Landlord</span>
+      case 'property_manager':
+        return <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">Property Manager</span>
+      case 'broker':
+        return <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200">Broker</span>
+      case 'tech_auditor':
+        return <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">Tech Auditor</span>
+      case 'admin':
+        return <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">Admin</span>
+      default:
+        return <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-gray-100 text-gray-700 border border-gray-200">Tenant</span>
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        
+
         {/* Hero Section */}
         <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div>
-            <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-              Verified Rental Listings
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-3xl font-black text-gray-900 tracking-tight">
+                {!loading && profile ? `Welcome back, ${firstName}!` : 'Verified Rental Listings'}
+              </h1>
+              {!loading && profile && renderRoleBadge(profile.role)}
+              {!loading && profile?.is_verified && (
+                <span className="bg-emerald-600 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wide">
+                  ✓ Verified Account
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-gray-500">
               Find apartments and houses across Kampala & Greater Wakiso
             </p>
           </div>
