@@ -29,6 +29,7 @@ export default function UserManagementPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null)
   const [notifyUser, setNotifyUser] = useState<UserProfile | null>(null)
+  const [isBroadcast, setIsBroadcast] = useState(false)
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
 
   // Notification form state
@@ -89,28 +90,56 @@ export default function UserManagementPage() {
 
   const handleSendNotification = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!notifyUser || !notifTitle.trim() || !notifBody.trim()) return
+    if (!notifTitle.trim() || !notifBody.trim()) return
 
     setSendingNotif(true)
-    const { error } = await supabase.from('notifications').insert({
-      user_id: notifyUser.id,
-      title: notifTitle.trim(),
-      message: notifBody.trim(),
-      link: notifLink.trim() || null,
-    })
 
-    if (!error) {
-      setMessage({
-        type: 'success',
-        text: `Notification sent successfully to ${notifyUser.full_name || notifyUser.email}`,
+    if (isBroadcast) {
+      // Build bulk inserts for all users
+      const rowsToInsert = users.map((u) => ({
+        user_id: u.id,
+        title: notifTitle.trim(),
+        message: notifBody.trim(),
+        link: notifLink.trim() || null,
+      }))
+
+      const { error } = await supabase.from('notifications').insert(rowsToInsert)
+
+      if (!error) {
+        setMessage({
+          type: 'success',
+          text: `Broadcast alert sent successfully to all ${users.length} users!`,
+        })
+        setIsBroadcast(false)
+        setNotifTitle('')
+        setNotifBody('')
+        setNotifLink('')
+      } else {
+        setMessage({ type: 'error', text: `Broadcast failed: ${error.message}` })
+      }
+    } else if (notifyUser) {
+      // Direct single user notification
+      const { error } = await supabase.from('notifications').insert({
+        user_id: notifyUser.id,
+        title: notifTitle.trim(),
+        message: notifBody.trim(),
+        link: notifLink.trim() || null,
       })
-      setNotifyUser(null)
-      setNotifTitle('')
-      setNotifBody('')
-      setNotifLink('')
-    } else {
-      setMessage({ type: 'error', text: `Failed to send notification: ${error.message}` })
+
+      if (!error) {
+        setMessage({
+          type: 'success',
+          text: `Notification sent successfully to ${notifyUser.full_name || notifyUser.email}`,
+        })
+        setNotifyUser(null)
+        setNotifTitle('')
+        setNotifBody('')
+        setNotifLink('')
+      } else {
+        setMessage({ type: 'error', text: `Failed to send notification: ${error.message}` })
+      }
     }
+
     setSendingNotif(false)
   }
 
@@ -130,12 +159,23 @@ export default function UserManagementPage() {
               Review partner upgrade applications, inspect National ID (NIN) photos, and push system notifications
             </p>
           </div>
-          <button
-            onClick={loadUsers}
-            className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold rounded-xl transition self-start md:self-auto cursor-pointer"
-          >
-            Refresh Registry
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setIsBroadcast(true)
+                setNotifyUser(null)
+              }}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+            >
+              📢 Broadcast to All
+            </button>
+            <button
+              onClick={loadUsers}
+              className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+            >
+              Refresh Registry
+            </button>
+          </div>
         </div>
 
         {message && (
@@ -256,10 +296,13 @@ export default function UserManagementPage() {
                           )}
                         </td>
 
-                        {/* Actions: Notification & Verification Toggle */}
+                        {/* Actions */}
                         <td className="py-4 px-6 text-right space-x-2">
                           <button
-                            onClick={() => setNotifyUser(u)}
+                            onClick={() => {
+                              setNotifyUser(u)
+                              setIsBroadcast(false)
+                            }}
                             className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-[10px] font-extrabold transition cursor-pointer"
                           >
                             🔔 Alert
@@ -289,19 +332,28 @@ export default function UserManagementPage() {
 
       </main>
 
-      {/* Dispatch Notification Modal */}
-      {notifyUser && (
+      {/* Dispatch Notification Modal (Single User OR Platform Broadcast) */}
+      {(notifyUser || isBroadcast) && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div>
-                <h3 className="text-base font-black text-gray-900">Push User Notification</h3>
+                <h3 className="text-base font-black text-gray-900">
+                  {isBroadcast ? '📢 Broadcast System Notification' : 'Push User Notification'}
+                </h3>
                 <p className="text-xs text-gray-500">
-                  Recipient: <strong>{notifyUser.full_name || notifyUser.email}</strong>
+                  {isBroadcast ? (
+                    <span className="text-emerald-600 font-bold">Recipients: All Registered Users ({users.length})</span>
+                  ) : (
+                    <>Recipient: <strong>{notifyUser?.full_name || notifyUser?.email}</strong></>
+                  )}
                 </p>
               </div>
               <button
-                onClick={() => setNotifyUser(null)}
+                onClick={() => {
+                  setNotifyUser(null)
+                  setIsBroadcast(false)
+                }}
                 className="text-gray-400 hover:text-gray-600 font-bold text-sm cursor-pointer"
               >
                 ✕ Close
@@ -318,7 +370,7 @@ export default function UserManagementPage() {
                   required
                   value={notifTitle}
                   onChange={(e) => setNotifTitle(e.target.value)}
-                  placeholder="e.g. Identity Verification Approved! 🎉"
+                  placeholder="e.g. System and Admin Alerts Active!"
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
                 />
               </div>
@@ -332,7 +384,7 @@ export default function UserManagementPage() {
                   rows={3}
                   value={notifBody}
                   onChange={(e) => setNotifBody(e.target.value)}
-                  placeholder="e.g. Your National ID document has been reviewed. You can now list properties."
+                  placeholder="e.g. We have just upgraded the system to include the notification Bell"
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50 resize-none"
                 ></textarea>
               </div>
@@ -345,7 +397,7 @@ export default function UserManagementPage() {
                   type="text"
                   value={notifLink}
                   onChange={(e) => setNotifLink(e.target.value)}
-                  placeholder="e.g. /profile or /submit"
+                  placeholder="e.g. /profile"
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
                 />
               </div>
@@ -353,7 +405,10 @@ export default function UserManagementPage() {
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setNotifyUser(null)}
+                  onClick={() => {
+                    setNotifyUser(null)
+                    setIsBroadcast(false)
+                  }}
                   className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 transition cursor-pointer"
                 >
                   Cancel
@@ -363,7 +418,7 @@ export default function UserManagementPage() {
                   disabled={sendingNotif}
                   className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white rounded-xl text-xs font-extrabold transition cursor-pointer"
                 >
-                  {sendingNotif ? 'Sending...' : 'Dispatch Alert'}
+                  {sendingNotif ? 'Broadcasting...' : isBroadcast ? 'Broadcast to All' : 'Dispatch Alert'}
                 </button>
               </div>
             </form>
@@ -392,7 +447,6 @@ export default function UserManagementPage() {
               </button>
             </div>
 
-            {/* Application Data Card */}
             <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100 text-xs">
               <div>
                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Assigned System Role</div>
@@ -406,7 +460,6 @@ export default function UserManagementPage() {
               </div>
             </div>
 
-            {/* Photos Display */}
             <div className="space-y-3">
               <div className="text-xs font-black text-gray-900 uppercase tracking-wider">
                 Uploaded Identification Snapshots
@@ -444,7 +497,6 @@ export default function UserManagementPage() {
               </div>
             </div>
 
-            {/* Modal Controls */}
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
               <button
                 onClick={() => setSelectedUser(null)}
