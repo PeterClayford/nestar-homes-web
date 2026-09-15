@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 
 interface Message {
@@ -13,7 +14,7 @@ export default function AbigailWidget({ propertyId }: { propertyId?: string }) {
   const [messages, setMessages] = useState<Message[]>([
     {
       sender: 'abigail',
-      text: "Hello! 👋 I'm Abigail, Nestar Homes AI Receptionist. Looking to inspect this property or ask about pricing?",
+      text: "Hello! I'm Abigail, Nestar Homes AI Receptionist. Looking to inspect this property or ask about pricing?",
     },
   ])
   const [input, setInput] = useState('')
@@ -81,16 +82,20 @@ export default function AbigailWidget({ propertyId }: { propertyId?: string }) {
 
   return (
     <div className="fixed bottom-6 right-6 z-50 font-sans">
-      {/* Floating Toggle Button */}
+      {/* Floating Toggle Button with Avatar */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="flex items-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3.5 rounded-full shadow-2xl transition-all transform hover:scale-105 cursor-pointer"
+          className="flex items-center gap-3 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2.5 rounded-full shadow-2xl transition-all transform hover:scale-105 cursor-pointer border border-emerald-600/40"
         >
-          <span className="relative flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
-          </span>
+          <div className="relative w-7 h-7 rounded-full overflow-hidden border border-white/40 shrink-0">
+            <Image
+              src="/abigail-avatar.jpg"
+              alt="Abigail AI"
+              fill
+              className="object-cover"
+            />
+          </div>
           <span className="text-xs font-black tracking-wide">Ask Abigail AI</span>
         </button>
       )}
@@ -98,11 +103,16 @@ export default function AbigailWidget({ propertyId }: { propertyId?: string }) {
       {/* Drawer Popover */}
       {isOpen && (
         <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-80 sm:w-96 h-[480px] flex flex-col overflow-hidden">
-          {/* Header */}
+          {/* Header with Avatar */}
           <div className="bg-gradient-to-r from-emerald-800 to-emerald-950 p-4 text-white flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center font-black text-emerald-300 text-sm">
-                🤖
+              <div className="relative w-9 h-9 rounded-full overflow-hidden border border-emerald-400/40 shrink-0 bg-emerald-950">
+                <Image
+                  src="/abigail-avatar.jpg"
+                  alt="Abigail AI"
+                  fill
+                  className="object-cover"
+                />
               </div>
               <div>
                 <h3 className="text-xs font-black tracking-tight">Abigail Receptionist</h3>
