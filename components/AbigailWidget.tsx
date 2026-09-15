@@ -20,6 +20,7 @@ export default function AbigailWidget({ propertyId }: { propertyId?: string }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string>('')
+  const [isLinking, setIsLinking] = useState(false)
 
   const chatEndRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
@@ -44,6 +45,26 @@ export default function AbigailWidget({ propertyId }: { propertyId?: string }) {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  const handleWhatsAppRedirect = async () => {
+    setIsLinking(true)
+    try {
+      const res = await fetch('/api/abigail/whatsapp-link')
+      if (res.ok) {
+        const data = await res.json()
+        if (data.url) {
+          window.open(data.url, '_blank')
+          setIsLinking(false)
+          return
+        }
+      }
+    } catch {
+      // Fall back to standard link if unauthenticated or on error
+    }
+    const defaultPhone = process.env.NEXT_PUBLIC_WHATSAPP_PHONE_NUMBER || '256700000000'
+    window.open(`https://wa.me/${defaultPhone}?text=Hi%20Abigail,%20I'm%20inquiring%20about%20Nestar%20Homes`, '_blank')
+    setIsLinking(false)
+  }
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,7 +103,6 @@ export default function AbigailWidget({ propertyId }: { propertyId?: string }) {
 
   return (
     <div className="fixed bottom-6 right-6 z-50 font-sans">
-      {/* Floating Toggle Button with Avatar */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
@@ -100,10 +120,8 @@ export default function AbigailWidget({ propertyId }: { propertyId?: string }) {
         </button>
       )}
 
-      {/* Drawer Popover */}
       {isOpen && (
         <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-80 sm:w-96 h-[480px] flex flex-col overflow-hidden">
-          {/* Header with Avatar */}
           <div className="bg-gradient-to-r from-emerald-800 to-emerald-950 p-4 text-white flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative w-9 h-9 rounded-full overflow-hidden border border-emerald-400/40 shrink-0 bg-emerald-950">
@@ -127,7 +145,6 @@ export default function AbigailWidget({ propertyId }: { propertyId?: string }) {
             </button>
           </div>
 
-          {/* Messages Window */}
           <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50/50 text-xs">
             {messages.map((m, i) => (
               <div
@@ -155,16 +172,15 @@ export default function AbigailWidget({ propertyId }: { propertyId?: string }) {
             <div ref={chatEndRef} />
           </div>
 
-          {/* WhatsApp Direct Option & Input Form */}
           <div className="p-3 bg-white border-t border-gray-100 space-y-2">
-            <a
-              href="https://wa.me/256700000000?text=Hi%20Abigail,%20I'm%20inquiring%20about%20Nestar%20Homes"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-center text-[10px] font-black text-emerald-700 bg-emerald-50 hover:bg-emerald-100 py-1.5 rounded-xl transition"
+            <button
+              type="button"
+              onClick={handleWhatsAppRedirect}
+              disabled={isLinking}
+              className="w-full text-center text-[10px] font-black text-emerald-700 bg-emerald-50 hover:bg-emerald-100 py-1.5 rounded-xl transition cursor-pointer"
             >
-              💬 Prefer Voice Notes? Chat on WhatsApp →
-            </a>
+              {isLinking ? "Generating Secure Link..." : "💬 Prefer Voice Notes? Chat on WhatsApp →"}
+            </button>
 
             <form onSubmit={handleSend} className="flex items-center gap-2">
               <input
