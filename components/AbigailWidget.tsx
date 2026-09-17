@@ -108,11 +108,12 @@ export default function AbigailWidget({ propertyId }: { propertyId?: string }) {
           onClick={() => setIsOpen(true)}
           className="flex items-center gap-3 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2.5 rounded-full shadow-2xl transition-all transform hover:scale-105 cursor-pointer border border-emerald-600/40"
         >
-          <div className="relative w-7 h-7 rounded-full overflow-hidden border border-white/40 shrink-0">
+          <div className="relative w-7 h-7 rounded-full overflow-hidden border border-white/40 shrink-0" suppressHydrationWarning>
             <Image
               src="/abigail-avatar.jpg"
               alt="Abigail AI"
               fill
+              sizes="28px"
               className="object-cover"
             />
           </div>
@@ -124,11 +125,12 @@ export default function AbigailWidget({ propertyId }: { propertyId?: string }) {
         <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-80 sm:w-96 h-[480px] flex flex-col overflow-hidden">
           <div className="bg-gradient-to-r from-emerald-800 to-emerald-950 p-4 text-white flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="relative w-9 h-9 rounded-full overflow-hidden border border-emerald-400/40 shrink-0 bg-emerald-950">
+              <div className="relative w-9 h-9 rounded-full overflow-hidden border border-emerald-400/40 shrink-0 bg-emerald-950" suppressHydrationWarning>
                 <Image
                   src="/abigail-avatar.jpg"
                   alt="Abigail AI"
                   fill
+                  sizes="36px"
                   className="object-cover"
                 />
               </div>
