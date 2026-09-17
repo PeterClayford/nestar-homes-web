@@ -32,8 +32,8 @@ export default function PropertyDetailPage({ params }: Props) {
 
   useEffect(() => {
     async function fetchProperty() {
-      const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://kccxmxxkwppeavcjvewd.supabase.co'
-      const apiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_MwLDXjKZHS9E7kIA9QUYYg_kpEvN_GU'
+      const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const apiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
       try {
         const res = await fetch(
