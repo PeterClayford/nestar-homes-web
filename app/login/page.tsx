@@ -14,6 +14,7 @@ function AuthForm() {
   const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
+  const [sendingReset, setSendingReset] = useState(false)
   const [checkingEmail, setCheckingEmail] = useState(false)
   const [showResendOptions, setShowResendOptions] = useState(false)
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
@@ -24,7 +25,6 @@ function AuthForm() {
   const redirectTarget = searchParams.get('redirect') || '/'
   const supabase = createClient()
 
-  // Auto-redirect if user is already authenticated
   useEffect(() => {
     async function checkExistingSession() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -64,6 +64,34 @@ function AuthForm() {
       console.error('Email check error:', err)
     } finally {
       setCheckingEmail(false)
+    }
+  }
+
+  const handleForgotPassword = async () => {
+    if (!email || !email.includes('@')) {
+      setMessage({ type: 'error', text: 'Please enter your email address first.' })
+      emailInputRef.current?.focus()
+      return
+    }
+
+    setSendingReset(true)
+    setMessage(null)
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+
+      if (error) throw error
+
+      setMessage({
+        type: 'success',
+        text: 'A password reset link has been sent to your email. Please check your inbox.',
+      })
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to send password reset email.' })
+    } finally {
+      setSendingReset(false)
     }
   }
 
@@ -274,9 +302,21 @@ function AuthForm() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Password
+                </label>
+                {!isSignUp && (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={sendingReset}
+                    className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-500 transition cursor-pointer"
+                  >
+                    {sendingReset ? 'Sending...' : 'Forgot password?'}
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}

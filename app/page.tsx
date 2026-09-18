@@ -108,13 +108,13 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-50 font-sans">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
 
         {/* Hero Section */}
-        <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-3xl font-black text-gray-900 tracking-tight">
+        <div className="bg-white p-5 sm:p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-1 w-full md:w-auto">
+            <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
                 {!loading && profile ? `Welcome back, ${firstName}!` : 'Verified Rental Listings'}
               </h1>
               {!loading && profile && renderRoleBadge(profile.role)}
@@ -124,7 +124,7 @@ export default function HomePage() {
                 </span>
               )}
             </div>
-            <p className="text-sm text-gray-500">
+            <p className="text-xs sm:text-sm text-gray-500">
               Find apartments and houses across Kampala & Greater Wakiso
             </p>
           </div>
@@ -132,7 +132,7 @@ export default function HomePage() {
           {!loading && profile && ['landlord', 'property_manager', 'broker', 'admin'].includes(profile.role) && (
             <Link
               href="/submit"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-sm transition self-stretch md:self-auto text-center"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-sm transition w-full md:w-auto text-center"
             >
               + List Property
             </Link>
@@ -141,7 +141,7 @@ export default function HomePage() {
           {!loading && profile?.role === 'client' && (
             <Link
               href="/account/upgrade"
-              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs px-5 py-3 rounded-xl border border-emerald-200 transition self-stretch md:self-auto text-center"
+              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs px-5 py-3 rounded-xl border border-emerald-200 transition w-full md:w-auto text-center"
             >
               Are you a Landlord or Broker? Apply to List
             </Link>
@@ -149,7 +149,7 @@ export default function HomePage() {
         </div>
 
         {/* Global Search Input & Dynamic Budget Slider */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="bg-white p-5 sm:p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="w-full md:w-2/3">
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
               Global Search
@@ -187,18 +187,18 @@ export default function HomePage() {
               step="50000"
               value={maxBudget}
               onChange={(e) => setMaxBudget(Number(e.target.value))}
-              className="w-full accent-emerald-600 cursor-pointer"
+              className="w-full accent-emerald-600 cursor-pointer h-2 bg-gray-100 rounded-lg"
             />
           </div>
         </div>
 
         {/* Dynamic Property Grid */}
         {propertiesLoading ? (
-          <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm text-xs font-semibold text-gray-400">
+          <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-gray-100 shadow-sm text-xs font-semibold text-gray-400">
             Fetching properties from database...
           </div>
         ) : filteredProperties.length === 0 ? (
-          <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm space-y-2">
+          <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-gray-100 shadow-sm space-y-2">
             <h3 className="text-sm font-bold text-gray-900">No properties found</h3>
             <p className="text-xs text-gray-400">
               No listings match your search query and budget range.
@@ -214,14 +214,14 @@ export default function HomePage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
             {filteredProperties.map((prop) => (
               <div
                 key={prop.id}
                 className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition group"
               >
                 <div>
-                  <div className="relative h-52 w-full overflow-hidden bg-gray-100">
+                  <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-gray-100">
                     <img
                       src={prop.coverImage}
                       alt={prop.title}
@@ -232,8 +232,8 @@ export default function HomePage() {
                     </span>
                   </div>
 
-                  <div className="p-5 space-y-1">
-                    <h3 className="font-extrabold text-gray-900 text-base tracking-tight">
+                  <div className="p-4 sm:p-5 space-y-1">
+                    <h3 className="font-extrabold text-gray-900 text-base tracking-tight line-clamp-1">
                       {prop.title}
                     </h3>
                     <p className="text-xs text-gray-400 font-medium">
@@ -242,7 +242,7 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <div className="p-5 pt-0 flex items-center justify-between border-t border-gray-50 mt-4">
+                <div className="p-4 sm:p-5 pt-0 flex items-center justify-between border-t border-gray-50 mt-2 sm:mt-4">
                   <div>
                     <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
                       Monthly Rent

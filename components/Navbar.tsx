@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { Menu, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import NotificationBell from '@/components/NotificationBell'
 
@@ -16,6 +17,7 @@ interface UserProfile {
 export default function Navbar() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -69,8 +71,8 @@ export default function Navbar() {
           </span>
         </Link>
 
-        {/* Dynamic Navigation Links */}
-        <nav className="flex items-center gap-5 text-xs font-semibold text-gray-600">
+        {/* Desktop Navigation Links */}
+        <nav className="hidden md:flex items-center gap-5 text-xs font-semibold text-gray-600">
           <Link href="/" className="hover:text-emerald-600 transition">
             Explore
           </Link>
@@ -136,7 +138,115 @@ export default function Navbar() {
           )}
         </nav>
 
+        {/* Mobile Controls (Notification Bell + Hamburger Button) */}
+        <div className="flex items-center gap-3 md:hidden">
+          {!loading && profile && <NotificationBell />}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 text-gray-600 hover:text-gray-900 focus:outline-none"
+            aria-label="Toggle Menu"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
+
       </div>
+
+      {/* Mobile Navigation Drawer */}
+      {mobileMenuOpen && (
+        <div className="md:hidden bg-white border-b border-gray-100 px-4 pt-2 pb-6 space-y-4 text-sm font-semibold text-gray-700 shadow-lg">
+          <Link
+            href="/"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block py-2 hover:text-emerald-600"
+          >
+            Explore
+          </Link>
+
+          {!loading && profile && (
+            <>
+              {['landlord', 'property_manager', 'broker', 'admin'].includes(profile.role) && (
+                <>
+                  <Link
+                    href="/submit"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 hover:text-emerald-600"
+                  >
+                    Post Property
+                  </Link>
+                  <Link
+                    href="/leads"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 text-emerald-700 font-bold"
+                  >
+                    Leads Dashboard
+                  </Link>
+                </>
+              )}
+
+              {['admin', 'tech_auditor'].includes(profile.role) && (
+                <>
+                  <Link
+                    href="/admin/users"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 hover:text-emerald-600"
+                  >
+                    Users Panel
+                  </Link>
+                  <Link
+                    href="/leads"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 hover:text-emerald-600"
+                  >
+                    Viewings
+                  </Link>
+                  <Link
+                    href="/admin/audit-logs"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 hover:text-emerald-600"
+                  >
+                    Audit Logs
+                  </Link>
+                </>
+              )}
+
+              {profile.role === 'client' && (
+                <Link
+                  href="/account/upgrade"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block py-2 text-emerald-600 font-bold"
+                >
+                  Become a Partner
+                </Link>
+              )}
+            </>
+          )}
+
+          <div className="pt-2 border-t border-gray-100">
+            {!loading && (
+              profile ? (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    handleSignOut()
+                  }}
+                  className="w-full text-left py-2 text-red-600 font-bold"
+                >
+                  Sign Out
+                </button>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block w-full text-center bg-gray-900 text-white py-3 rounded-xl text-xs font-bold"
+                >
+                  Sign In
+                </Link>
+              )
+            )}
+          </div>
+        </div>
+      )}
     </header>
   )
 }
