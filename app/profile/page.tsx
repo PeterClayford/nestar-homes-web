@@ -10,6 +10,8 @@ interface UserProfile {
   email: string
   full_name?: string
   phone_number?: string
+  whatsapp_number?: string
+  whatsapp_verified?: boolean
   role: string
   status: string
   is_verified: boolean
@@ -24,6 +26,16 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [savingContact, setSavingContact] = useState(false)
+  
+  // Contact Form State
+  const [fullNameInput, setFullNameInput] = useState('')
+  const [phoneInput, setPhoneInput] = useState('')
+  const [whatsappInput, setWhatsappInput] = useState('')
+  const [sameAsPhone, setSameAsPhone] = useState(true)
+  const [contactMessage, setContactMessage] = useState('')
+
+  // Verification Form State
   const [ninInput, setNinInput] = useState('')
   const [message, setMessage] = useState('')
 
@@ -36,6 +48,26 @@ export default function ProfilePage() {
 
   const supabase = createClient()
   const router = useRouter()
+
+  const validateUgandanPhone = (phone: string): boolean => {
+    const cleaned = phone.trim().replace(/[\s\-\+\(\)]/g, '')
+    const localRegex = /^07\d{8}$/
+    const intlRegex = /^2567\d{8}$/
+    return localRegex.test(cleaned) || intlRegex.test(cleaned)
+  }
+
+  const validateInternationalPhone = (phone: string): boolean => {
+    const cleaned = phone.trim().replace(/[\s\-\+\(\)]/g, '')
+    return /^\d{7,15}$/.test(cleaned)
+  }
+
+  const sanitizePhoneNumber = (phone: string, isLocalOnly = false): string => {
+    let cleaned = phone.trim().replace(/[\s\-\+\(\)]/g, '')
+    if (cleaned.startsWith('07')) {
+      cleaned = '256' + cleaned.substring(1)
+    }
+    return cleaned
+  }
 
   useEffect(() => {
     fetchProfile()
@@ -51,12 +83,21 @@ export default function ProfilePage() {
 
     const { data } = await supabase
       .from('profiles')
-      .select('id, email, full_name, phone_number, role, status, is_verified, verification_documents')
+      .select('id, email, full_name, phone_number, whatsapp_number, whatsapp_verified, role, status, is_verified, verification_documents')
       .eq('id', user.id)
       .single()
 
     if (data) {
       setProfile(data as UserProfile)
+      if (data.full_name) setFullNameInput(data.full_name)
+      if (data.phone_number) setPhoneInput(data.phone_number)
+      if (data.whatsapp_number) {
+        setWhatsappInput(data.whatsapp_number)
+        if (data.whatsapp_number !== data.phone_number) setSameAsPhone(false)
+      } else if (data.phone_number) {
+        setWhatsappInput(data.phone_number)
+      }
+
       if (data.verification_documents?.nin_number) {
         setNinInput(data.verification_documents.nin_number)
       }
@@ -70,15 +111,70 @@ export default function ProfilePage() {
     setLoading(false)
   }
 
-  // Calculate Verification Completion Percentage dynamically
+  const handlePhoneChange = (val: string) => {
+    setPhoneInput(val)
+    if (sameAsPhone) {
+      setWhatsappInput(val)
+    }
+  }
+
+  const handleSameAsPhoneToggle = (checked: boolean) => {
+    setSameAsPhone(checked)
+    if (checked) {
+      setWhatsappInput(phoneInput)
+    }
+  }
+
+  const handleSaveContact = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!profile) return
+    setSavingContact(true)
+    setContactMessage('')
+
+    const cleanedPhone = sanitizePhoneNumber(phoneInput, true)
+    const rawWhatsApp = sameAsPhone ? phoneInput : whatsappInput
+    const cleanedWhatsApp = sanitizePhoneNumber(rawWhatsApp, false)
+
+    if (phoneInput && !validateUgandanPhone(phoneInput)) {
+      setContactMessage('Invalid Mobile Money phone number. Must start with 07 or 2567.')
+      setSavingContact(false)
+      return
+    }
+
+    if (rawWhatsApp && !validateInternationalPhone(rawWhatsApp)) {
+      setContactMessage('Invalid WhatsApp number. Please enter a valid number with country code (e.g. +971..., +44..., or 07...).')
+      setSavingContact(false)
+      return
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        full_name: fullNameInput.trim(),
+        phone_number: cleanedPhone,
+        whatsapp_number: cleanedWhatsApp,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', profile.id)
+
+    if (!error) {
+      setContactMessage('Contact details updated successfully!')
+      fetchProfile()
+    } else {
+      setContactMessage('Failed to update contact details.')
+    }
+    setSavingContact(false)
+  }
+
   const calculateCompletion = () => {
     if (!profile) return 0
-    if (profile.is_verified) return 100 // Fully verified accounts always hit 100%
-    
-    let points = 25
-    if (profile.phone_number) points += 25
-    if (profile.verification_documents?.nin_number || ninInput) points += 25
-    if (frontPreview || backPreview) points += 25
+    if (profile.is_verified) return 100
+
+    let points = 20
+    if (profile.phone_number) points += 20
+    if (profile.whatsapp_number) points += 20
+    if (profile.verification_documents?.nin_number || ninInput) points += 20
+    if (frontPreview || backPreview) points += 20
     return points
   }
 
@@ -183,7 +279,7 @@ export default function ProfilePage() {
       <Navbar />
 
       <main className="max-w-3xl mx-auto px-4 py-10 space-y-6">
-        
+
         {/* Header Block */}
         <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -218,7 +314,7 @@ export default function ProfilePage() {
               </span>
               <span className="font-black text-emerald-600">{completionScore}% Completed</span>
             </div>
-            
+
             <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
               <div
                 className="h-full bg-emerald-600 transition-all duration-500 rounded-full"
@@ -229,11 +325,100 @@ export default function ProfilePage() {
             <p className="text-[11px] text-gray-600 font-medium pt-1">
               {isApproved
                 ? 'Your identity documents have been verified and approved by Nestar Homes Administration.'
-                : completionScore >= 75
+                : completionScore >= 80
                 ? 'Phase 2 complete! Your uploaded ID is currently under Admin review.'
                 : 'Complete Phase 1 & 2 below to unlock partner listing rights and trust badges.'}
             </p>
           </div>
+        </div>
+
+        {/* Contact Information & WhatsApp Details */}
+        <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-900">Personal & Contact Details</h2>
+            {profile?.whatsapp_verified ? (
+              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase">
+                ✓ WhatsApp Verified
+              </span>
+            ) : (
+              <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase">
+                WhatsApp Unverified
+              </span>
+            )}
+          </div>
+
+          <form onSubmit={handleSaveContact} className="space-y-4">
+            {contactMessage && (
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3 rounded-xl font-semibold">
+                {contactMessage}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                Full Name / Contact Person
+              </label>
+              <input
+                type="text"
+                required
+                value={fullNameInput}
+                onChange={(e) => setFullNameInput(e.target.value)}
+                placeholder="e.g. Peter Anderson"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                Mobile Money Phone Number
+              </label>
+              <input
+                type="tel"
+                value={phoneInput}
+                onChange={(e) => handlePhoneChange(e.target.value)}
+                placeholder="e.g. 0777699468 or 256705485667"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  Dedicated WhatsApp Contact Line
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sameAsPhone}
+                    onChange={(e) => handleSameAsPhoneToggle(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded accent-emerald-600 border-gray-300"
+                  />
+                  <span className="text-[10px] font-semibold text-gray-600">Same as Phone</span>
+                </label>
+              </div>
+
+              {!sameAsPhone && (
+                <input
+                  type="tel"
+                  value={whatsappInput}
+                  onChange={(e) => setWhatsappInput(e.target.value)}
+                  placeholder="e.g. +971501234567, +447911123456, or 0705485667"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
+                />
+              )}
+              <p className="text-[10px] text-gray-400">
+                Supports local and international numbers (e.g. +971..., +44..., +254...). Used for dispatching lead notifications.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={savingContact}
+              className="bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 text-white font-extrabold text-xs px-5 py-3 rounded-xl transition shadow-sm cursor-pointer"
+            >
+              {savingContact ? 'Saving Contact Details...' : 'Update Contact Details'}
+            </button>
+          </form>
         </div>
 
         {/* Live Camera Viewfinder Modal */}
@@ -274,9 +459,8 @@ export default function ProfilePage() {
         {/* Tier 2 ID Submission Form OR Approved Locked View */}
         <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
           <h2 className="text-lg font-bold text-gray-900">Tier 2: Progressive Identification</h2>
-          
+
           {isApproved ? (
-            /* Post-Approval Clean State: Upload UI is hidden for privacy & security */
             <div className="bg-emerald-50/60 border border-emerald-100 p-6 rounded-2xl space-y-3">
               <div className="flex items-center gap-3 text-emerald-900 font-extrabold text-sm">
                 <span>🛡️</span> Identity Verification Secured
@@ -289,7 +473,6 @@ export default function ProfilePage() {
               </div>
             </div>
           ) : (
-            /* Unapproved State: Active Upload & Camera Interface */
             <form onSubmit={handleSaveVerification} className="space-y-6">
               {message && (
                 <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3 rounded-xl font-semibold">
@@ -312,7 +495,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
+
                 {/* Card Front Block */}
                 <div className="p-5 border-2 border-dashed border-gray-200 rounded-2xl text-center space-y-3 bg-gray-50/50">
                   <div className="text-xs font-bold text-gray-800">NIN Card Front Photo</div>
