@@ -9,10 +9,12 @@ export default function UpgradeAccountPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
-  
+
   const [selectedRole, setSelectedRole] = useState<'landlord' | 'property_manager' | 'broker'>('landlord')
   const [fullName, setFullName] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [whatsappNumber, setWhatsappNumber] = useState('')
+  const [sameAsPhone, setSameAsPhone] = useState(true)
   const [ninNumber, setNinNumber] = useState('')
   const [businessName, setBusinessName] = useState('')
   const [agreedToTerms, setAgreedToTerms] = useState(false)
@@ -20,11 +22,29 @@ export default function UpgradeAccountPage() {
   const supabase = createClient()
   const router = useRouter()
 
+  // Validate Uganda Mobile Money Phone (MTN/Airtel)
   const validateUgandanPhone = (phone: string): boolean => {
-    const cleaned = phone.trim().replace(/\s+/g, '')
+    const cleaned = phone.trim().replace(/[\s\-\+\(\)]/g, '')
     const localRegex = /^07\d{8}$/
     const intlRegex = /^2567\d{8}$/
     return localRegex.test(cleaned) || intlRegex.test(cleaned)
+  }
+
+  // Validate Flexible International Phone (E.164 Standard) for WhatsApp
+  const validateInternationalPhone = (phone: string): boolean => {
+    const cleaned = phone.trim().replace(/[\s\-\+\(\)]/g, '')
+    return /^\d{7,15}$/.test(cleaned)
+  }
+
+  // Sanitize number into clean digits (e.g., convert local 07... to 2567... or keep intl digits)
+  const sanitizePhoneNumber = (phone: string, isLocalOnly = false): string => {
+    let cleaned = phone.trim().replace(/[\s\-\+\(\)]/g, '')
+    if (isLocalOnly && cleaned.startsWith('07')) {
+      cleaned = '256' + cleaned.substring(1)
+    } else if (!isLocalOnly && cleaned.startsWith('07')) {
+      cleaned = '256' + cleaned.substring(1)
+    }
+    return cleaned
   }
 
   useEffect(() => {
@@ -38,13 +58,20 @@ export default function UpgradeAccountPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, phone_number, role, verification_documents')
+        .select('full_name, phone_number, whatsapp_number, role, verification_documents')
         .eq('id', user.id)
         .single()
 
       if (profile) {
         if (profile.full_name) setFullName(profile.full_name)
-        if (profile.phone_number) setPhoneNumber(profile.phone_number)
+        if (profile.phone_number) {
+          setPhoneNumber(profile.phone_number)
+          if (!profile.whatsapp_number) setWhatsappNumber(profile.phone_number)
+        }
+        if (profile.whatsapp_number) {
+          setWhatsappNumber(profile.whatsapp_number)
+          if (profile.whatsapp_number !== profile.phone_number) setSameAsPhone(false)
+        }
         if (profile.verification_documents?.nin_number) {
           setNinNumber(profile.verification_documents.nin_number)
         }
@@ -55,17 +82,38 @@ export default function UpgradeAccountPage() {
     loadUserProfile()
   }, [supabase, router])
 
+  const handlePhoneChange = (val: string) => {
+    setPhoneNumber(val)
+    if (sameAsPhone) {
+      setWhatsappNumber(val)
+    }
+  }
+
+  const handleSameAsPhoneToggle = (checked: boolean) => {
+    setSameAsPhone(checked)
+    if (checked) {
+      setWhatsappNumber(phoneNumber)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const cleanedPhone = phoneNumber.trim().replace(/\s+/g, '')
+    const cleanedPhone = sanitizePhoneNumber(phoneNumber, true)
+    const rawWhatsApp = sameAsPhone ? phoneNumber : whatsappNumber
+    const cleanedWhatsApp = sanitizePhoneNumber(rawWhatsApp, false)
 
-    if (!fullName.trim() || !cleanedPhone || !ninNumber.trim()) {
-      setErrorMsg('Full Name, Mobile Money Phone Number, and National ID (NIN) are required.')
+    if (!fullName.trim() || !cleanedPhone || !cleanedWhatsApp || !ninNumber.trim()) {
+      setErrorMsg('Full Name, Mobile Money Phone, WhatsApp Number, and National ID (NIN) are required.')
       return
     }
 
-    if (!validateUgandanPhone(cleanedPhone)) {
-      setErrorMsg('Invalid phone number format. Please enter a valid 10-digit number starting with 07 or 12-digit number starting with 2567.')
+    if (!validateUgandanPhone(phoneNumber)) {
+      setErrorMsg('Invalid Mobile Money number. Please enter a valid Ugandan number starting with 07 or 2567.')
+      return
+    }
+
+    if (!validateInternationalPhone(rawWhatsApp)) {
+      setErrorMsg('Invalid WhatsApp number. Please enter a valid phone number with country code (e.g. +971... or +44... or 07...).')
       return
     }
 
@@ -93,6 +141,7 @@ export default function UpgradeAccountPage() {
       .update({
         full_name: fullName.trim(),
         phone_number: cleanedPhone,
+        whatsapp_number: cleanedWhatsApp,
         role: selectedRole,
         verification_documents: updatedDocs,
         status_reason: `Tier 1 Completed: Applied for ${selectedRole.toUpperCase()} (NIN: ${ninNumber.trim()})`,
@@ -105,7 +154,6 @@ export default function UpgradeAccountPage() {
       setErrorMsg(error.message || 'Failed to submit partner application.')
       setSubmitting(false)
     } else {
-      // Seamless Transition: Push directly to Tier 2 on Profile page
       router.push('/profile?step=tier2')
     }
   }
@@ -122,7 +170,8 @@ export default function UpgradeAccountPage() {
   }
 
   const isPhoneValid = validateUgandanPhone(phoneNumber)
-  const isFormValid = fullName.trim() !== '' && isPhoneValid && ninNumber.trim() !== '' && agreedToTerms
+  const isWhatsAppValid = validateInternationalPhone(whatsappNumber)
+  const isFormValid = fullName.trim() !== '' && isPhoneValid && isWhatsAppValid && ninNumber.trim() !== '' && agreedToTerms
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -205,7 +254,7 @@ export default function UpgradeAccountPage() {
                 type="tel"
                 required
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                onChange={(e) => handlePhoneChange(e.target.value)}
                 placeholder="e.g. 0777699468 or 256705485667"
                 className={`w-full px-4 py-3 rounded-xl border text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 bg-gray-50/50 ${
                   phoneNumber && !isPhoneValid
@@ -213,6 +262,42 @@ export default function UpgradeAccountPage() {
                     : 'border-gray-200 focus:ring-emerald-600'
                 }`}
               />
+            </div>
+
+            {/* Dedicated WhatsApp Number */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  WhatsApp Contact Number <span className="text-rose-500">*</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sameAsPhone}
+                    onChange={(e) => handleSameAsPhoneToggle(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded accent-emerald-600 border-gray-300"
+                  />
+                  <span className="text-[10px] font-semibold text-gray-600">Same as Phone Number</span>
+                </label>
+              </div>
+
+              {!sameAsPhone && (
+                <input
+                  type="tel"
+                  required
+                  value={whatsappNumber}
+                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  placeholder="e.g. +971501234567, +447911123456, or 0705485667"
+                  className={`w-full px-4 py-3 rounded-xl border text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 bg-gray-50/50 ${
+                    whatsappNumber && !isWhatsAppValid
+                      ? 'border-rose-300 focus:ring-rose-500'
+                      : 'border-gray-200 focus:ring-emerald-600'
+                  }`}
+                />
+              )}
+              <p className="text-[10px] text-gray-400">
+                Supports local and international numbers (e.g. +971..., +44..., +254...). Used strictly for dispatching tenant leads.
+              </p>
             </div>
 
             {/* Business Name */}
