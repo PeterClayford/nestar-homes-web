@@ -16,10 +16,20 @@ interface ViewingLead {
   created_at: string
 }
 
+interface OwnerContact {
+  fullName: string
+  phone: string
+  whatsapp: string
+  role: string
+  propertyTitle: string
+}
+
 export default function LeadsPage() {
   const [leads, setLeads] = useState<ViewingLead[]>([])
   const [loading, setLoading] = useState(true)
   const [authorized, setAuthorized] = useState(false)
+  const [selectedOwner, setSelectedOwner] = useState<OwnerContact | null>(null)
+  const [dispatchingId, setDispatchingId] = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -65,10 +75,59 @@ export default function LeadsPage() {
     verifyAndFetch()
   }, [supabase])
 
-  const handleDispatchContact = (phoneNumber: string) => {
-    if (!phoneNumber) return
-    const cleanedNumber = phoneNumber.replace(/\s+/g, '')
-    window.open(`https://wa.me/${cleanedNumber}`, '_blank')
+  const handleDispatchOwnerContact = async (lead: ViewingLead) => {
+    setDispatchingId(lead.id)
+    try {
+      let ownerProfile = null
+
+      // Attempt lookup if property_id is present
+      if (lead.property_id) {
+        const { data: property } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('id', lead.property_id)
+          .single()
+
+        const landlordId = property?.user_id || property?.landlord_id || property?.created_by
+        if (landlordId) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, phone_number, whatsapp_number, role')
+            .eq('id', landlordId)
+            .single()
+          if (profile) ownerProfile = profile
+        }
+      }
+
+      // Fallback: Fetch primary admin/landlord profile if no direct link exists on the property record
+      if (!ownerProfile) {
+        const { data: adminProfiles } = await supabase
+          .from('profiles')
+          .select('full_name, phone_number, whatsapp_number, role')
+          .in('role', ['admin', 'landlord'])
+          .limit(1)
+
+        if (adminProfiles && adminProfiles.length > 0) {
+          ownerProfile = adminProfiles[0]
+        }
+      }
+
+      const targetPhone = ownerProfile?.whatsapp_number || ownerProfile?.phone_number || 'N/A'
+      const targetName = ownerProfile?.full_name || 'Nestar Property Desk'
+      const targetRole = ownerProfile?.role || 'Manager / Broker'
+
+      setSelectedOwner({
+        fullName: targetName,
+        phone: targetPhone,
+        whatsapp: targetPhone.replace(/\s+/g, ''),
+        role: targetRole,
+        propertyTitle: lead.property_title || 'Listed Property'
+      })
+    } catch (err) {
+      console.error('Error dispatching owner contact:', err)
+    } finally {
+      setDispatchingId(null)
+    }
   }
 
   if (loading) {
@@ -155,10 +214,11 @@ export default function LeadsPage() {
                         {lead.amount ? Number(lead.amount).toLocaleString() : '10,000'} {lead.currency || 'UGX'}
                       </span>
                       <button
-                        onClick={() => handleDispatchContact(lead.phone_number)}
-                        className="px-3 py-1.5 rounded-xl text-[11px] font-bold text-white bg-gray-900 hover:bg-emerald-600 transition cursor-pointer"
+                        onClick={() => handleDispatchOwnerContact(lead)}
+                        disabled={dispatchingId === lead.id}
+                        className="px-3 py-1.5 rounded-xl text-[11px] font-bold text-white bg-gray-900 hover:bg-emerald-600 transition cursor-pointer disabled:opacity-50"
                       >
-                        Dispatch Contact
+                        {dispatchingId === lead.id ? 'Fetching Owner...' : 'Dispatch Contact'}
                       </button>
                     </div>
                   </div>
@@ -210,10 +270,11 @@ export default function LeadsPage() {
                         </td>
                         <td className="py-4 px-6">
                           <button
-                            onClick={() => handleDispatchContact(lead.phone_number)}
-                            className="px-3 py-1.5 rounded-xl text-[11px] font-bold text-white bg-gray-900 hover:bg-emerald-600 transition cursor-pointer"
+                            onClick={() => handleDispatchOwnerContact(lead)}
+                            disabled={dispatchingId === lead.id}
+                            className="px-3 py-1.5 rounded-xl text-[11px] font-bold text-white bg-gray-900 hover:bg-emerald-600 transition cursor-pointer disabled:opacity-50"
                           >
-                            Dispatch Contact
+                            {dispatchingId === lead.id ? 'Fetching Owner...' : 'Dispatch Contact'}
                           </button>
                         </td>
                       </tr>
@@ -224,6 +285,64 @@ export default function LeadsPage() {
             </>
           )}
         </div>
+
+        {/* Owner Contact Reveal Modal */}
+        {selectedOwner && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-gray-100 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <h2 className="text-base font-bold text-gray-900">Property Owner / Broker Contact</h2>
+                <button
+                  onClick={() => setSelectedOwner(null)}
+                  className="text-gray-400 hover:text-gray-600 text-sm font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div className="text-gray-500 font-semibold">
+                  Property: <span className="text-gray-900 font-bold">{selectedOwner.propertyTitle}</span>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Name:</span>
+                    <span className="font-bold text-gray-900">{selectedOwner.fullName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Role:</span>
+                    <span className="font-bold text-emerald-700 uppercase text-[10px] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                      {selectedOwner.role}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Phone / WhatsApp:</span>
+                    <span className="font-mono font-bold text-gray-900">{selectedOwner.phone}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                {selectedOwner.phone !== 'N/A' && (
+                  <a
+                    href={`https://wa.me/${selectedOwner.whatsapp}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 text-center py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition"
+                  >
+                    Open WhatsApp
+                  </a>
+                )}
+                <button
+                  onClick={() => setSelectedOwner(null)}
+                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition flex-1"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
