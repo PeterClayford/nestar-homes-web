@@ -29,8 +29,6 @@ export default function ProfilePage() {
   const [savingContact, setSavingContact] = useState(false)
   
   // Contact Form State
-  const [fullNameInput, setFullNameInput] = useState('')
-  const [phoneInput, setPhoneInput] = useState('')
   const [whatsappInput, setWhatsappInput] = useState('')
   const [sameAsPhone, setSameAsPhone] = useState(true)
   const [contactMessage, setContactMessage] = useState('')
@@ -49,19 +47,12 @@ export default function ProfilePage() {
   const supabase = createClient()
   const router = useRouter()
 
-  const validateUgandanPhone = (phone: string): boolean => {
-    const cleaned = phone.trim().replace(/[\s\-\+\(\)]/g, '')
-    const localRegex = /^07\d{8}$/
-    const intlRegex = /^2567\d{8}$/
-    return localRegex.test(cleaned) || intlRegex.test(cleaned)
-  }
-
   const validateInternationalPhone = (phone: string): boolean => {
     const cleaned = phone.trim().replace(/[\s\-\+\(\)]/g, '')
     return /^\d{7,15}$/.test(cleaned)
   }
 
-  const sanitizePhoneNumber = (phone: string, isLocalOnly = false): string => {
+  const sanitizePhoneNumber = (phone: string): string => {
     let cleaned = phone.trim().replace(/[\s\-\+\(\)]/g, '')
     if (cleaned.startsWith('07')) {
       cleaned = '256' + cleaned.substring(1)
@@ -89,8 +80,6 @@ export default function ProfilePage() {
 
     if (data) {
       setProfile(data as UserProfile)
-      if (data.full_name) setFullNameInput(data.full_name)
-      if (data.phone_number) setPhoneInput(data.phone_number)
       if (data.whatsapp_number) {
         setWhatsappInput(data.whatsapp_number)
         if (data.whatsapp_number !== data.phone_number) setSameAsPhone(false)
@@ -111,17 +100,10 @@ export default function ProfilePage() {
     setLoading(false)
   }
 
-  const handlePhoneChange = (val: string) => {
-    setPhoneInput(val)
-    if (sameAsPhone) {
-      setWhatsappInput(val)
-    }
-  }
-
   const handleSameAsPhoneToggle = (checked: boolean) => {
     setSameAsPhone(checked)
-    if (checked) {
-      setWhatsappInput(phoneInput)
+    if (checked && profile?.phone_number) {
+      setWhatsappInput(profile.phone_number)
     }
   }
 
@@ -131,15 +113,8 @@ export default function ProfilePage() {
     setSavingContact(true)
     setContactMessage('')
 
-    const cleanedPhone = sanitizePhoneNumber(phoneInput, true)
-    const rawWhatsApp = sameAsPhone ? phoneInput : whatsappInput
-    const cleanedWhatsApp = sanitizePhoneNumber(rawWhatsApp, false)
-
-    if (phoneInput && !validateUgandanPhone(phoneInput)) {
-      setContactMessage('Invalid Mobile Money phone number. Must start with 07 or 2567.')
-      setSavingContact(false)
-      return
-    }
+    const rawWhatsApp = sameAsPhone ? (profile.phone_number || '') : whatsappInput
+    const cleanedWhatsApp = sanitizePhoneNumber(rawWhatsApp)
 
     if (rawWhatsApp && !validateInternationalPhone(rawWhatsApp)) {
       setContactMessage('Invalid WhatsApp number. Please enter a valid number with country code (e.g. +971..., +44..., or 07...).')
@@ -150,18 +125,16 @@ export default function ProfilePage() {
     const { error } = await supabase
       .from('profiles')
       .update({
-        full_name: fullNameInput.trim(),
-        phone_number: cleanedPhone,
         whatsapp_number: cleanedWhatsApp,
         updated_at: new Date().toISOString(),
       })
       .eq('id', profile.id)
 
     if (!error) {
-      setContactMessage('Contact details updated successfully!')
+      setContactMessage('WhatsApp contact line updated successfully!')
       fetchProfile()
     } else {
-      setContactMessage('Failed to update contact details.')
+      setContactMessage('Failed to update WhatsApp contact line.')
     }
     setSavingContact(false)
   }
@@ -335,7 +308,7 @@ export default function ProfilePage() {
         {/* Contact Information & WhatsApp Details */}
         <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-900">Personal & Contact Details</h2>
+            <h2 className="text-lg font-bold text-gray-900">Account & WhatsApp Line</h2>
             {profile?.whatsapp_verified ? (
               <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase">
                 ✓ WhatsApp Verified
@@ -347,39 +320,33 @@ export default function ProfilePage() {
             )}
           </div>
 
-          <form onSubmit={handleSaveContact} className="space-y-4">
+          {/* Locked Identity Fields (Read-Only) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50/80 p-4 rounded-2xl border border-gray-100">
+            <div>
+              <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                Full Name / Legal Entity 🔒
+              </span>
+              <p className="text-xs font-bold text-gray-800">
+                {profile?.full_name || 'Not Specified'}
+              </p>
+            </div>
+            <div>
+              <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                Mobile Money Contact 🔒
+              </span>
+              <p className="text-xs font-bold text-gray-800">
+                {profile?.phone_number || 'Not Specified'}
+              </p>
+            </div>
+          </div>
+
+          {/* Editable WhatsApp Form */}
+          <form onSubmit={handleSaveContact} className="space-y-4 pt-2">
             {contactMessage && (
               <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3 rounded-xl font-semibold">
                 {contactMessage}
               </div>
             )}
-
-            <div>
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-                Full Name / Contact Person
-              </label>
-              <input
-                type="text"
-                required
-                value={fullNameInput}
-                onChange={(e) => setFullNameInput(e.target.value)}
-                placeholder="e.g. Peter Anderson"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-                Mobile Money Phone Number
-              </label>
-              <input
-                type="tel"
-                value={phoneInput}
-                onChange={(e) => handlePhoneChange(e.target.value)}
-                placeholder="e.g. 0777699468 or 256705485667"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
-              />
-            </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -393,7 +360,7 @@ export default function ProfilePage() {
                     onChange={(e) => handleSameAsPhoneToggle(e.target.checked)}
                     className="h-3.5 w-3.5 rounded accent-emerald-600 border-gray-300"
                   />
-                  <span className="text-[10px] font-semibold text-gray-600">Same as Phone</span>
+                  <span className="text-[10px] font-semibold text-gray-600">Same as Mobile Money Line</span>
                 </label>
               </div>
 
@@ -416,7 +383,7 @@ export default function ProfilePage() {
               disabled={savingContact}
               className="bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 text-white font-extrabold text-xs px-5 py-3 rounded-xl transition shadow-sm cursor-pointer"
             >
-              {savingContact ? 'Saving Contact Details...' : 'Update Contact Details'}
+              {savingContact ? 'Saving WhatsApp Line...' : 'Update WhatsApp Line'}
             </button>
           </form>
         </div>
