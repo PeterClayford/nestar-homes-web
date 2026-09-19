@@ -79,6 +79,11 @@ export default function Navbar() {
 
           {!loading && profile && (
             <>
+              {/* Profile Link */}
+              <Link href="/profile" className="hover:text-emerald-600 transition">
+                Profile
+              </Link>
+
               {/* Creator & Admin Actions */}
               {['landlord', 'property_manager', 'broker', 'admin'].includes(profile.role) && (
                 <>
@@ -165,6 +170,14 @@ export default function Navbar() {
 
           {!loading && profile && (
             <>
+              <Link
+                href="/profile"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 hover:text-emerald-600"
+              >
+                Profile
+              </Link>
+
               {['landlord', 'property_manager', 'broker', 'admin'].includes(profile.role) && (
                 <>
                   <Link
