@@ -37,7 +37,6 @@ export default function LeadsPage() {
     async function verifyAndFetch() {
       setLoading(true)
 
-      // 1. Role Authorization Guard (Admin & Tech Auditor only)
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         setLoading(false)
@@ -58,7 +57,6 @@ export default function LeadsPage() {
 
       setAuthorized(true)
 
-      // 2. Fetch viewing transactions cleanly matching the database schema
       const { data, error } = await supabase
         .from('viewings')
         .select('*')
@@ -80,15 +78,14 @@ export default function LeadsPage() {
     try {
       let ownerProfile = null
 
-      // Attempt lookup if property_id is present
       if (lead.property_id) {
         const { data: property } = await supabase
           .from('properties')
-          .select('*')
+          .select('user_id, landlord_id, created_by, title')
           .eq('id', lead.property_id)
           .single()
 
-        const landlordId = property?.user_id || property?.landlord_id || property?.created_by
+        const landlordId = property?.landlord_id || property?.user_id || property?.created_by
         if (landlordId) {
           const { data: profile } = await supabase
             .from('profiles')
@@ -99,27 +96,37 @@ export default function LeadsPage() {
         }
       }
 
-      // Fallback: Fetch primary admin/landlord profile if no direct link exists on the property record
       if (!ownerProfile) {
-        const { data: adminProfiles } = await supabase
+        const { data: landlordProfiles } = await supabase
           .from('profiles')
           .select('full_name, phone_number, whatsapp_number, role')
-          .in('role', ['admin', 'landlord'])
+          .eq('role', 'landlord')
           .limit(1)
 
-        if (adminProfiles && adminProfiles.length > 0) {
-          ownerProfile = adminProfiles[0]
+        if (landlordProfiles && landlordProfiles.length > 0) {
+          ownerProfile = landlordProfiles[0]
+        } else {
+          const { data: adminProfiles } = await supabase
+            .from('profiles')
+            .select('full_name, phone_number, whatsapp_number, role')
+            .eq('role', 'admin')
+            .limit(1)
+
+          if (adminProfiles && adminProfiles.length > 0) {
+            ownerProfile = adminProfiles[0]
+          }
         }
       }
 
-      const targetPhone = ownerProfile?.whatsapp_number || ownerProfile?.phone_number || 'N/A'
+      const rawPhone = ownerProfile?.whatsapp_number || ownerProfile?.phone_number || 'N/A'
+      const cleanWhatsApp = rawPhone.replace(/[\s\-\+\(\)]/g, '')
       const targetName = ownerProfile?.full_name || 'Nestar Property Desk'
-      const targetRole = ownerProfile?.role || 'Manager / Broker'
+      const targetRole = ownerProfile?.role || 'Landlord'
 
       setSelectedOwner({
         fullName: targetName,
-        phone: targetPhone,
-        whatsapp: targetPhone.replace(/\s+/g, ''),
+        phone: rawPhone,
+        whatsapp: cleanWhatsApp,
         role: targetRole,
         propertyTitle: lead.property_title || 'Listed Property'
       })
