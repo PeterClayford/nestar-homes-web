@@ -1,17 +1,29 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+
+interface GeographicNode {
+  id: string
+  name: string
+}
 
 export default function SubmitPropertyPage() {
   const router = useRouter()
+  const supabase = createClient()
+
   const [loading, setLoading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
 
+  const [districts, setDistricts] = useState<GeographicNode[]>([])
+  const [loadingDistricts, setLoadingDistricts] = useState(true)
+
   const [formData, setFormData] = useState({
     title: '',
+    district_id: '',
     town_name: 'Sonde',
     village_name: '',
     rent_amount: '',
@@ -21,6 +33,29 @@ export default function SubmitPropertyPage() {
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
+
+  // Fetch Ugandan Districts/Cities from geographic_nodes
+  useEffect(() => {
+    async function fetchDistricts() {
+      try {
+        const { data, error } = await supabase
+          .from('geographic_nodes')
+          .select('id, name')
+          .order('name', { ascending: true })
+
+        if (!error && data && data.length > 0) {
+          setDistricts(data as GeographicNode[])
+          setFormData((prev) => ({ ...prev, district_id: data[0].id }))
+        }
+      } catch (err) {
+        console.error('Error fetching districts:', err)
+      } finally {
+        setLoadingDistricts(false)
+      }
+    }
+
+    fetchDistricts()
+  }, [supabase])
 
   const compressImage = (file: File): Promise<Blob> => {
     return new Promise((resolve, reject) => {
@@ -84,6 +119,9 @@ export default function SubmitPropertyPage() {
     const apiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
     try {
+      // 1. Capture logged in user for landlord ownership binding
+      const { data: { user } } = await supabase.auth.getUser()
+
       const uploadedImageUrls: string[] = []
 
       for (let i = 0; i < selectedFiles.length; i++) {
@@ -110,17 +148,19 @@ export default function SubmitPropertyPage() {
 
       setUploadStatus('Saving listing details...')
 
-      const finalImages = uploadedImageUrls.length > 0 
-        ? uploadedImageUrls 
+      const finalImages = uploadedImageUrls.length > 0
+        ? uploadedImageUrls
         : ['https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80']
 
       const payload = {
         title: formData.title,
+        district_id: formData.district_id || null,
         town_name: formData.town_name,
         village_name: formData.village_name,
         rent_amount: Number(formData.rent_amount),
         currency: formData.currency,
         description: formData.description,
+        landlord_id: user?.id || null,
         status: 'AVAILABLE',
         images: finalImages
       }
@@ -181,7 +221,34 @@ export default function SubmitPropertyPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Location Fields: District/City, Town/Region, Village/Zone */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">District / City *</label>
+              <select
+                required
+                value={formData.district_id}
+                onChange={(e) => setFormData({ ...formData, district_id: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
+              >
+                {loadingDistricts ? (
+                  <option value="">Loading districts...</option>
+                ) : districts.length === 0 ? (
+                  <>
+                    <option value="">Kampala</option>
+                    <option value="">Wakiso</option>
+                    <option value="">Mukono</option>
+                  </>
+                ) : (
+                  districts.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Town / Region *</label>
               <select
