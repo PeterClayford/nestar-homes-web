@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -14,6 +14,9 @@ export default function SubmitPropertyPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const [loading, setLoading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
@@ -21,7 +24,6 @@ export default function SubmitPropertyPage() {
   const [districts, setDistricts] = useState<GeographicNode[]>([])
   const [loadingDistricts, setLoadingDistricts] = useState(true)
 
-  // Custom location toggles
   const [isCustomDistrict, setIsCustomDistrict] = useState(false)
   const [isCustomTown, setIsCustomTown] = useState(false)
 
@@ -40,7 +42,6 @@ export default function SubmitPropertyPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
 
-  // Fetch Ugandan Districts/Cities from geographic_nodes
   useEffect(() => {
     async function fetchDistricts() {
       try {
@@ -49,9 +50,8 @@ export default function SubmitPropertyPage() {
           .select('id, name')
           .order('name', { ascending: true })
 
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
           setDistricts(data as GeographicNode[])
-          setFormData((prev) => ({ ...prev, district_id: data[0].id }))
         }
       } catch (err) {
         console.error('Error fetching districts:', err)
@@ -117,6 +117,12 @@ export default function SubmitPropertyPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!isCustomDistrict && !formData.district_id) {
+      setError('Please select a District / City from the list or add a custom one.')
+      return
+    }
+
     setLoading(true)
     setError(null)
     setUploadStatus('Compressing images...')
@@ -127,12 +133,10 @@ export default function SubmitPropertyPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
 
-      // Resolve District ID or insert Custom District if "OTHER" was chosen
       let finalDistrictId = isCustomDistrict ? null : formData.district_id
       let finalTownName = isCustomTown ? formData.custom_town : formData.town_name
 
       if (isCustomDistrict && formData.custom_district.trim()) {
-        // Automatically insert new district into geographic_nodes so it populates for future listings
         const { data: newNode } = await supabase
           .from('geographic_nodes')
           .insert([{ name: formData.custom_district.trim(), level: 'DISTRICT_CITY' }])
@@ -222,7 +226,7 @@ export default function SubmitPropertyPage() {
 
       <div className="max-w-2xl mx-auto bg-white rounded-2xl p-6 md:p-10 border border-slate-200 shadow-sm">
         <h1 className="text-2xl font-bold text-slate-900 mb-1">List a New Property</h1>
-        <p className="text-sm text-slate-500 mb-8">Publish rental unit details with camera snap or image upload.</p>
+        <p className="text-sm text-slate-500 mb-8">Publish rental unit details with phone camera or gallery upload.</p>
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl">
@@ -243,7 +247,6 @@ export default function SubmitPropertyPage() {
             />
           </div>
 
-          {/* Dynamic Location Grid: Supports Dropdown Selection & Custom Input Toggles */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">District / City *</label>
@@ -261,18 +264,17 @@ export default function SubmitPropertyPage() {
                   }}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
                 >
+                  <option value="">-- Select District / City --</option>
                   {loadingDistricts ? (
-                    <option value="">Loading districts...</option>
+                    <option value="" disabled>Loading districts...</option>
                   ) : (
-                    <>
-                      {districts.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
-                      ))}
-                      <option value="OTHER">+ Add Other District / City</option>
-                    </>
+                    districts.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))
                   )}
+                  <option value="OTHER">+ Add Other District / City</option>
                 </select>
               ) : (
                 <div className="space-y-1">
@@ -377,22 +379,49 @@ export default function SubmitPropertyPage() {
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
-                Property Photos (Camera or Upload)
+                Property Photos
               </label>
               <span className="text-xs font-bold text-slate-400">
                 {selectedFiles.length} photo{selectedFiles.length === 1 ? '' : 's'} added
               </span>
             </div>
 
-            {/* Native Mobile Camera Capture + File Upload */}
+            {/* Hidden Input Handles */}
             <input
               type="file"
-              multiple
+              ref={cameraInputRef}
               accept="image/*"
               capture="environment"
               onChange={handleFileChange}
-              className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+              className="hidden"
             />
+            <input
+              type="file"
+              ref={fileInputRef}
+              multiple
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+
+            {/* Explicit Dual Upload Buttons */}
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm"
+              >
+                📷 Take Photo with Camera
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition border border-slate-200"
+              >
+                📁 Upload from Gallery
+              </button>
+            </div>
 
             {previews.length > 0 && (
               <div className="grid grid-cols-4 gap-3 mt-4">
