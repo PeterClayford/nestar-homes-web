@@ -21,10 +21,16 @@ export default function SubmitPropertyPage() {
   const [districts, setDistricts] = useState<GeographicNode[]>([])
   const [loadingDistricts, setLoadingDistricts] = useState(true)
 
+  // Custom location toggles
+  const [isCustomDistrict, setIsCustomDistrict] = useState(false)
+  const [isCustomTown, setIsCustomTown] = useState(false)
+
   const [formData, setFormData] = useState({
     title: '',
     district_id: '',
+    custom_district: '',
     town_name: 'Sonde',
+    custom_town: '',
     village_name: '',
     rent_amount: '',
     currency: 'UGX',
@@ -119,8 +125,24 @@ export default function SubmitPropertyPage() {
     const apiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
     try {
-      // 1. Capture logged in user for landlord ownership binding
       const { data: { user } } = await supabase.auth.getUser()
+
+      // Resolve District ID or insert Custom District if "OTHER" was chosen
+      let finalDistrictId = isCustomDistrict ? null : formData.district_id
+      let finalTownName = isCustomTown ? formData.custom_town : formData.town_name
+
+      if (isCustomDistrict && formData.custom_district.trim()) {
+        // Automatically insert new district into geographic_nodes so it populates for future listings
+        const { data: newNode } = await supabase
+          .from('geographic_nodes')
+          .insert([{ name: formData.custom_district.trim(), level: 'DISTRICT_CITY' }])
+          .select('id')
+          .single()
+
+        if (newNode) {
+          finalDistrictId = newNode.id
+        }
+      }
 
       const uploadedImageUrls: string[] = []
 
@@ -154,8 +176,8 @@ export default function SubmitPropertyPage() {
 
       const payload = {
         title: formData.title,
-        district_id: formData.district_id || null,
-        town_name: formData.town_name,
+        district_id: finalDistrictId,
+        town_name: finalTownName,
         village_name: formData.village_name,
         rent_amount: Number(formData.rent_amount),
         currency: formData.currency,
@@ -200,7 +222,7 @@ export default function SubmitPropertyPage() {
 
       <div className="max-w-2xl mx-auto bg-white rounded-2xl p-6 md:p-10 border border-slate-200 shadow-sm">
         <h1 className="text-2xl font-bold text-slate-900 mb-1">List a New Property</h1>
-        <p className="text-sm text-slate-500 mb-8">Publish rental unit details with compressed multi-photo gallery.</p>
+        <p className="text-sm text-slate-500 mb-8">Publish rental unit details with camera snap or image upload.</p>
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl">
@@ -221,47 +243,99 @@ export default function SubmitPropertyPage() {
             />
           </div>
 
-          {/* Location Fields: District/City, Town/Region, Village/Zone */}
+          {/* Dynamic Location Grid: Supports Dropdown Selection & Custom Input Toggles */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">District / City *</label>
-              <select
-                required
-                value={formData.district_id}
-                onChange={(e) => setFormData({ ...formData, district_id: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
-              >
-                {loadingDistricts ? (
-                  <option value="">Loading districts...</option>
-                ) : districts.length === 0 ? (
-                  <>
-                    <option value="">Kampala</option>
-                    <option value="">Wakiso</option>
-                    <option value="">Mukono</option>
-                  </>
-                ) : (
-                  districts.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))
-                )}
-              </select>
+              {!isCustomDistrict ? (
+                <select
+                  required
+                  value={formData.district_id}
+                  onChange={(e) => {
+                    if (e.target.value === 'OTHER') {
+                      setIsCustomDistrict(true)
+                      setFormData({ ...formData, district_id: '' })
+                    } else {
+                      setFormData({ ...formData, district_id: e.target.value })
+                    }
+                  }}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
+                >
+                  {loadingDistricts ? (
+                    <option value="">Loading districts...</option>
+                  ) : (
+                    <>
+                      {districts.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                      <option value="OTHER">+ Add Other District / City</option>
+                    </>
+                  )}
+                </select>
+              ) : (
+                <div className="space-y-1">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter District Name"
+                    value={formData.custom_district}
+                    onChange={(e) => setFormData({ ...formData, custom_district: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-emerald-500 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-emerald-50/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomDistrict(false)}
+                    className="text-[11px] font-bold text-emerald-700 hover:underline"
+                  >
+                    ← Select from list
+                  </button>
+                </div>
+              )}
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Town / Region *</label>
-              <select
-                value={formData.town_name}
-                onChange={(e) => setFormData({ ...formData, town_name: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
-              >
-                <option value="Sonde">Sonde</option>
-                <option value="Kyaliwajala">Kyaliwajala</option>
-                <option value="Kira">Kira</option>
-                <option value="Kisasi">Kisasi</option>
-                <option value="Naalya">Naalya</option>
-              </select>
+              {!isCustomTown ? (
+                <select
+                  value={formData.town_name}
+                  onChange={(e) => {
+                    if (e.target.value === 'OTHER') {
+                      setIsCustomTown(true)
+                      setFormData({ ...formData, town_name: '' })
+                    } else {
+                      setFormData({ ...formData, town_name: e.target.value })
+                    }
+                  }}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
+                >
+                  <option value="Sonde">Sonde</option>
+                  <option value="Kyaliwajala">Kyaliwajala</option>
+                  <option value="Kira">Kira</option>
+                  <option value="Kisasi">Kisasi</option>
+                  <option value="Naalya">Naalya</option>
+                  <option value="OTHER">+ Add Other Town / Region</option>
+                </select>
+              ) : (
+                <div className="space-y-1">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter Town / Region"
+                    value={formData.custom_town}
+                    onChange={(e) => setFormData({ ...formData, custom_town: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-emerald-500 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-emerald-50/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomTown(false)}
+                    className="text-[11px] font-bold text-emerald-700 hover:underline"
+                  >
+                    ← Select from list
+                  </button>
+                </div>
+              )}
             </div>
 
             <div>
@@ -303,19 +377,21 @@ export default function SubmitPropertyPage() {
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
-                Property Photos
+                Property Photos (Camera or Upload)
               </label>
               <span className="text-xs font-bold text-slate-400">
                 {selectedFiles.length} photo{selectedFiles.length === 1 ? '' : 's'} added
               </span>
             </div>
 
+            {/* Native Mobile Camera Capture + File Upload */}
             <input
               type="file"
               multiple
               accept="image/*"
+              capture="environment"
               onChange={handleFileChange}
-              className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
+              className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
             />
 
             {previews.length > 0 && (
