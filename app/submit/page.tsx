@@ -1,14 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-
-interface GeographicNode {
-  id: string
-  name: string
-}
 
 export default function SubmitPropertyPage() {
   const router = useRouter()
@@ -21,18 +16,10 @@ export default function SubmitPropertyPage() {
   const [uploadStatus, setUploadStatus] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
 
-  const [districts, setDistricts] = useState<GeographicNode[]>([])
-  const [loadingDistricts, setLoadingDistricts] = useState(true)
-
-  const [isCustomDistrict, setIsCustomDistrict] = useState(false)
-  const [isCustomTown, setIsCustomTown] = useState(false)
-
   const [formData, setFormData] = useState({
     title: '',
-    district_id: '',
-    custom_district: '',
-    town_name: 'Sonde',
-    custom_town: '',
+    district_name: '',
+    town_name: '',
     village_name: '',
     rent_amount: '',
     currency: 'UGX',
@@ -41,27 +28,6 @@ export default function SubmitPropertyPage() {
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
-
-  useEffect(() => {
-    async function fetchDistricts() {
-      try {
-        const { data, error } = await supabase
-          .from('geographic_nodes')
-          .select('id, name')
-          .order('name', { ascending: true })
-
-        if (!error && data) {
-          setDistricts(data as GeographicNode[])
-        }
-      } catch (err) {
-        console.error('Error fetching districts:', err)
-      } finally {
-        setLoadingDistricts(false)
-      }
-    }
-
-    fetchDistricts()
-  }, [supabase])
 
   const compressImage = (file: File): Promise<Blob> => {
     return new Promise((resolve, reject) => {
@@ -118,8 +84,8 @@ export default function SubmitPropertyPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!isCustomDistrict && !formData.district_id) {
-      setError('Please select a District / City from the list or add a custom one.')
+    if (!formData.district_name.trim()) {
+      setError('Please provide a District or City name.')
       return
     }
 
@@ -133,18 +99,27 @@ export default function SubmitPropertyPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
 
-      let finalDistrictId = isCustomDistrict ? null : formData.district_id
-      let finalTownName = isCustomTown ? formData.custom_town : formData.town_name
+      // Resolve or create geographic node for district_id automatically
+      let resolvedDistrictId = null
+      const cleanDistrict = formData.district_name.trim()
 
-      if (isCustomDistrict && formData.custom_district.trim()) {
-        const { data: newNode } = await supabase
+      if (cleanDistrict) {
+        const { data: existingNode } = await supabase
           .from('geographic_nodes')
-          .insert([{ name: formData.custom_district.trim(), level: 'DISTRICT_CITY' }])
           .select('id')
+          .ilike('name', cleanDistrict)
           .single()
 
-        if (newNode) {
-          finalDistrictId = newNode.id
+        if (existingNode) {
+          resolvedDistrictId = existingNode.id
+        } else {
+          const { data: newNode } = await supabase
+            .from('geographic_nodes')
+            .insert([{ name: cleanDistrict, level: 'DISTRICT_CITY' }])
+            .select('id')
+            .single()
+
+          if (newNode) resolvedDistrictId = newNode.id
         }
       }
 
@@ -180,9 +155,9 @@ export default function SubmitPropertyPage() {
 
       const payload = {
         title: formData.title,
-        district_id: finalDistrictId,
-        town_name: finalTownName,
-        village_name: formData.village_name,
+        district_id: resolvedDistrictId,
+        town_name: formData.town_name.trim(),
+        village_name: formData.village_name.trim(),
         rent_amount: Number(formData.rent_amount),
         currency: formData.currency,
         description: formData.description,
@@ -247,97 +222,30 @@ export default function SubmitPropertyPage() {
             />
           </div>
 
+          {/* Location Inputs: Direct manual entry for District, Town, and Village */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">District / City *</label>
-              {!isCustomDistrict ? (
-                <select
-                  required
-                  value={formData.district_id}
-                  onChange={(e) => {
-                    if (e.target.value === 'OTHER') {
-                      setIsCustomDistrict(true)
-                      setFormData({ ...formData, district_id: '' })
-                    } else {
-                      setFormData({ ...formData, district_id: e.target.value })
-                    }
-                  }}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
-                >
-                  <option value="">-- Select District / City --</option>
-                  {loadingDistricts ? (
-                    <option value="" disabled>Loading districts...</option>
-                  ) : (
-                    districts.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))
-                  )}
-                  <option value="OTHER">+ Add Other District / City</option>
-                </select>
-              ) : (
-                <div className="space-y-1">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Enter District Name"
-                    value={formData.custom_district}
-                    onChange={(e) => setFormData({ ...formData, custom_district: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-emerald-500 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-emerald-50/20"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsCustomDistrict(false)}
-                    className="text-[11px] font-bold text-emerald-700 hover:underline"
-                  >
-                    ← Select from list
-                  </button>
-                </div>
-              )}
+              <input
+                type="text"
+                required
+                placeholder="e.g. Kampala, Wakiso"
+                value={formData.district_name}
+                onChange={(e) => setFormData({ ...formData, district_name: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Town / Region *</label>
-              {!isCustomTown ? (
-                <select
-                  value={formData.town_name}
-                  onChange={(e) => {
-                    if (e.target.value === 'OTHER') {
-                      setIsCustomTown(true)
-                      setFormData({ ...formData, town_name: '' })
-                    } else {
-                      setFormData({ ...formData, town_name: e.target.value })
-                    }
-                  }}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
-                >
-                  <option value="Sonde">Sonde</option>
-                  <option value="Kyaliwajala">Kyaliwajala</option>
-                  <option value="Kira">Kira</option>
-                  <option value="Kisasi">Kisasi</option>
-                  <option value="Naalya">Naalya</option>
-                  <option value="OTHER">+ Add Other Town / Region</option>
-                </select>
-              ) : (
-                <div className="space-y-1">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Enter Town / Region"
-                    value={formData.custom_town}
-                    onChange={(e) => setFormData({ ...formData, custom_town: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-emerald-500 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-emerald-50/20"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsCustomTown(false)}
-                    className="text-[11px] font-bold text-emerald-700 hover:underline"
-                  >
-                    ← Select from list
-                  </button>
-                </div>
-              )}
+              <input
+                type="text"
+                required
+                placeholder="e.g. Sonde, Ntinda"
+                value={formData.town_name}
+                onChange={(e) => setFormData({ ...formData, town_name: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              />
             </div>
 
             <div>
@@ -386,7 +294,6 @@ export default function SubmitPropertyPage() {
               </span>
             </div>
 
-            {/* Hidden Input Handles */}
             <input
               type="file"
               ref={cameraInputRef}
@@ -404,7 +311,6 @@ export default function SubmitPropertyPage() {
               className="hidden"
             />
 
-            {/* Explicit Dual Upload Buttons */}
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
