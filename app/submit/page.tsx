@@ -99,7 +99,7 @@ export default function SubmitPropertyPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
 
-      // 1. Resolve or create geographic node safely with required node_type
+      // 1. Resolve or insert geographic_nodes (sending both name and node_type)
       let resolvedDistrictId: string | null = null
       const cleanDistrict = formData.district_name.trim()
 
@@ -113,7 +113,7 @@ export default function SubmitPropertyPage() {
         if (existingNodes && existingNodes.length > 0) {
           resolvedDistrictId = existingNodes[0].id
         } else {
-          // Explicitly pass node_type: 'DISTRICT' to fulfill NOT NULL constraint
+          // Explicitly supply node_type to satisfy NOT NULL constraint
           const { data: newNode, error: insertErr } = await supabase
             .from('geographic_nodes')
             .insert([{ name: cleanDistrict, node_type: 'DISTRICT' }])
@@ -122,24 +122,11 @@ export default function SubmitPropertyPage() {
 
           if (!insertErr && newNode?.id) {
             resolvedDistrictId = newNode.id
-          } else {
-            console.error('Node creation error:', insertErr)
           }
         }
       }
 
-      // Fallback to any existing node ID if creation/resolution is bypassed
-      if (!resolvedDistrictId) {
-        const { data: fallbackNodes } = await supabase
-          .from('geographic_nodes')
-          .select('id')
-          .limit(1)
-
-        if (fallbackNodes && fallbackNodes.length > 0) {
-          resolvedDistrictId = fallbackNodes[0].id
-        }
-      }
-
+      // 2. Upload photo assets to Supabase Storage
       const uploadedImageUrls: string[] = []
 
       for (let i = 0; i < selectedFiles.length; i++) {
@@ -170,9 +157,10 @@ export default function SubmitPropertyPage() {
         ? uploadedImageUrls
         : ['https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80']
 
-      // 2. Build property payload safely
-      const payload: Record<string, any> = {
+      // 3. Construct properties payload matching exact database schema
+      const payload = {
         title: formData.title.trim(),
+        district_id: resolvedDistrictId,
         town_name: formData.town_name.trim(),
         village_name: formData.village_name.trim() || null,
         rent_amount: Number(formData.rent_amount),
@@ -181,10 +169,6 @@ export default function SubmitPropertyPage() {
         landlord_id: user?.id || null,
         status: 'AVAILABLE',
         images: finalImages
-      }
-
-      if (resolvedDistrictId) {
-        payload.district_id = resolvedDistrictId
       }
 
       const res = await fetch(`${baseUrl}/rest/v1/properties`, {
