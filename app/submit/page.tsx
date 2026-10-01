@@ -99,7 +99,7 @@ export default function SubmitPropertyPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
 
-      // 1. Resolve or insert geographic_nodes (sending both name and node_type)
+      // 1. Resolve or create geographic_nodes
       let resolvedDistrictId: string | null = null
       const cleanDistrict = formData.district_name.trim()
 
@@ -113,7 +113,6 @@ export default function SubmitPropertyPage() {
         if (existingNodes && existingNodes.length > 0) {
           resolvedDistrictId = existingNodes[0].id
         } else {
-          // Explicitly supply node_type to satisfy NOT NULL constraint
           const { data: newNode, error: insertErr } = await supabase
             .from('geographic_nodes')
             .insert([{ name: cleanDistrict, node_type: 'DISTRICT' }])
@@ -126,7 +125,7 @@ export default function SubmitPropertyPage() {
         }
       }
 
-      // 2. Upload photo assets to Supabase Storage
+      // 2. Upload photos to Supabase Storage
       const uploadedImageUrls: string[] = []
 
       for (let i = 0; i < selectedFiles.length; i++) {
@@ -157,8 +156,8 @@ export default function SubmitPropertyPage() {
         ? uploadedImageUrls
         : ['https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80']
 
-      // 3. Construct properties payload matching exact database schema
-      const payload = {
+      // 3. Build properties payload matching schema
+      const payload: Record<string, any> = {
         title: formData.title.trim(),
         district_id: resolvedDistrictId,
         town_name: formData.town_name.trim(),
@@ -166,9 +165,13 @@ export default function SubmitPropertyPage() {
         rent_amount: Number(formData.rent_amount),
         currency: formData.currency,
         description: formData.description.trim() || null,
-        landlord_id: user?.id || null,
         status: 'AVAILABLE',
         images: finalImages
+      }
+
+      // Include landlord_id if user is logged in
+      if (user?.id) {
+        payload.landlord_id = user.id
       }
 
       const res = await fetch(`${baseUrl}/rest/v1/properties`, {
@@ -177,15 +180,16 @@ export default function SubmitPropertyPage() {
           'apikey': apiKey,
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
+          'Prefer': 'return=representation'
         },
         body: JSON.stringify(payload)
       })
 
       if (!res.ok) {
-        const errTxt = await res.text()
-        console.error('Database response error:', errTxt)
-        throw new Error(`Failed to publish listing (${res.status})`)
+        const errJson = await res.json().catch(() => null)
+        const detailedMsg = errJson?.message || errJson?.hint || `HTTP ${res.status}`
+        console.error('Database insertion error:', errJson)
+        throw new Error(`Failed to publish listing: ${detailedMsg}`)
       }
 
       router.push('/')
