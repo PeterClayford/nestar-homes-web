@@ -99,12 +99,11 @@ export default function SubmitPropertyPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
 
-      // 1. Resolve or create geographic node safely
+      // 1. Resolve or create geographic node safely with required node_type
       let resolvedDistrictId: string | null = null
       const cleanDistrict = formData.district_name.trim()
 
       if (cleanDistrict) {
-        // Query any existing node matching the clean district name
         const { data: existingNodes } = await supabase
           .from('geographic_nodes')
           .select('id')
@@ -114,20 +113,22 @@ export default function SubmitPropertyPage() {
         if (existingNodes && existingNodes.length > 0) {
           resolvedDistrictId = existingNodes[0].id
         } else {
-          // Try inserting minimal payload without level restriction if level fails
+          // Explicitly pass node_type: 'DISTRICT' to fulfill NOT NULL constraint
           const { data: newNode, error: insertErr } = await supabase
             .from('geographic_nodes')
-            .insert([{ name: cleanDistrict }])
+            .insert([{ name: cleanDistrict, node_type: 'DISTRICT' }])
             .select('id')
             .maybeSingle()
 
           if (!insertErr && newNode?.id) {
             resolvedDistrictId = newNode.id
+          } else {
+            console.error('Node creation error:', insertErr)
           }
         }
       }
 
-      // Fallback: If district_id is still null, pick ANY existing node ID to satisfy NOT NULL foreign key constraint
+      // Fallback to any existing node ID if creation/resolution is bypassed
       if (!resolvedDistrictId) {
         const { data: fallbackNodes } = await supabase
           .from('geographic_nodes')
@@ -169,7 +170,7 @@ export default function SubmitPropertyPage() {
         ? uploadedImageUrls
         : ['https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80']
 
-      // 2. Build payload safely
+      // 2. Build property payload safely
       const payload: Record<string, any> = {
         title: formData.title.trim(),
         town_name: formData.town_name.trim(),
