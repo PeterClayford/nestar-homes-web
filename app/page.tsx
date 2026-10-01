@@ -73,11 +73,12 @@ export default function HomePage() {
     ? profile.email.split('@')[0]
     : 'User'
 
-  // Dynamic filter logic for broad text search across town, zone, and title
+  // Dynamic filter logic for broad text search across district, town, zone, and title
   const filteredProperties = properties.filter((prop) => {
     const q = searchQuery.toLowerCase().trim()
     const matchesSearch =
       !q ||
+      (prop.district && prop.district.toLowerCase().includes(q)) ||
       prop.location.toLowerCase().includes(q) ||
       prop.zone.toLowerCase().includes(q) ||
       prop.title.toLowerCase().includes(q)
@@ -157,7 +158,7 @@ export default function HomePage() {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Search town, zone, or title (e.g. Kyaliwajjala, Sonde, Apartment)..."
+                placeholder="Search district, town, zone, or title (e.g. Wakiso, Kyaliwajjala, Sonde, Apartment)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"

@@ -4,6 +4,7 @@ export interface Property {
   id: string
   title: string
   description?: string
+  district?: string     // Mapped from DB: district_name
   location: string      // Mapped from DB: town_name
   zone: string          // Mapped from DB: village_name
   price: number         // Mapped from DB: rent_amount
@@ -31,6 +32,7 @@ export async function getPublishedProperties(supabase: SupabaseClient): Promise<
     id: row.id,
     title: row.title || 'Untitled Property',
     description: row.description || '',
+    district: row.district_name || '',
     location: row.town_name || 'Kampala',
     zone: row.village_name || 'Central',
     price: Number(row.rent_amount) || 0,
