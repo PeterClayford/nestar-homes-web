@@ -100,26 +100,28 @@ export default function SubmitPropertyPage() {
       const { data: { user } } = await supabase.auth.getUser()
 
       // Resolve or create geographic node for district_id automatically
-      let resolvedDistrictId = null
+      let resolvedDistrictId: string | null = null
       const cleanDistrict = formData.district_name.trim()
 
       if (cleanDistrict) {
-        const { data: existingNode } = await supabase
+        const { data: existingNodes } = await supabase
           .from('geographic_nodes')
           .select('id')
           .ilike('name', cleanDistrict)
-          .single()
+          .limit(1)
 
-        if (existingNode) {
-          resolvedDistrictId = existingNode.id
+        if (existingNodes && existingNodes.length > 0) {
+          resolvedDistrictId = existingNodes[0].id
         } else {
           const { data: newNode } = await supabase
             .from('geographic_nodes')
             .insert([{ name: cleanDistrict, level: 'DISTRICT_CITY' }])
             .select('id')
-            .single()
+            .maybeSingle()
 
-          if (newNode) resolvedDistrictId = newNode.id
+          if (newNode?.id) {
+            resolvedDistrictId = newNode.id
+          }
         }
       }
 
@@ -154,13 +156,13 @@ export default function SubmitPropertyPage() {
         : ['https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80']
 
       const payload = {
-        title: formData.title,
-        district_id: resolvedDistrictId,
+        title: formData.title.trim(),
+        district_id: resolvedDistrictId || null,
         town_name: formData.town_name.trim(),
-        village_name: formData.village_name.trim(),
+        village_name: formData.village_name.trim() || null,
         rent_amount: Number(formData.rent_amount),
         currency: formData.currency,
-        description: formData.description,
+        description: formData.description.trim() || null,
         landlord_id: user?.id || null,
         status: 'AVAILABLE',
         images: finalImages
