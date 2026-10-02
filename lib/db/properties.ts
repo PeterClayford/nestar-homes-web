@@ -4,7 +4,7 @@ export interface Property {
   id: string
   title: string
   description?: string
-  district?: string     // Mapped from DB: district_name
+  district?: string     // Mapped from DB: geographic_nodes join or district_name fallback
   location: string      // Mapped from DB: town_name
   zone: string          // Mapped from DB: village_name
   price: number         // Mapped from DB: rent_amount
@@ -18,21 +18,33 @@ export interface Property {
 export async function getPublishedProperties(supabase: SupabaseClient): Promise<Property[]> {
   const { data, error } = await supabase
     .from('properties')
-    .select('*')
+    .select(`
+      *,
+      district_node:geographic_nodes!district_id(name)
+    `)
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('Error fetching properties from Supabase:', error)
-    return []
+    console.error('Error fetching properties with relational join, retrying base select:', error)
+    const { data: fallbackData } = await supabase
+      .from('properties')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (!fallbackData) return []
+    return mapProperties(fallbackData)
   }
 
   if (!data) return []
+  return mapProperties(data)
+}
 
+function mapProperties(data: any[]): Property[] {
   return data.map((row: any) => ({
     id: row.id,
     title: row.title || 'Untitled Property',
     description: row.description || '',
-    district: row.district_name || '',
+    district: row.district_node?.name || row.district_name || '',
     location: row.town_name || 'Kampala',
     zone: row.village_name || 'Central',
     price: Number(row.rent_amount) || 0,
