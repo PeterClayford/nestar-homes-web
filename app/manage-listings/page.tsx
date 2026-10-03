@@ -14,7 +14,7 @@ interface ManagedProperty {
   status: 'Active' | 'Rented' | 'Pending' | 'Archived'
   cover_image?: string
   created_at?: string
-  created_by?: string
+  user_id?: string
 }
 
 export default function ManageListingsPage() {
@@ -31,61 +31,42 @@ export default function ManageListingsPage() {
 
       const { data: { user } } = await supabase.auth.getUser()
 
-      let userIsAdmin = false
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-
-        if (profile?.role === 'admin' || profile?.role === 'tech_auditor') {
-          userIsAdmin = true
-        }
+      if (!user) {
+        setLoading(false)
+        return
       }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      const userIsAdmin = profile?.role === 'admin' || profile?.role === 'tech_auditor'
       setIsAdmin(userIsAdmin)
 
       const rawProperties = await getPublishedProperties(supabase)
 
       if (rawProperties && rawProperties.length > 0) {
-        const filtered = rawProperties.filter((p: any) => {
+        const userListings = rawProperties.filter((p: any) => {
           if (userIsAdmin) return true
-          if (!user) return true
-          return (
-            p.created_by === user.id ||
-            p.user_id === user.id ||
-            p.landlord_id === user.id ||
-            true
-          )
+          const propertyOwnerId = p.created_by || p.user_id || p.landlord_id
+          return propertyOwnerId === user.id
         })
 
-        const mapped: ManagedProperty[] = filtered.map((p: any) => ({
+        const mapped: ManagedProperty[] = userListings.map((p: any) => ({
           id: String(p.id),
           title: p.title || 'Untitled Property',
           location: p.location || p.district || p.town || 'Kampala',
           rent: p.price || p.rent || 0,
           status: p.status || 'Active',
           cover_image: p.coverImage || p.cover_image_url || '/placeholder.png',
+          user_id: p.created_by || p.user_id || p.landlord_id,
         }))
 
         setProperties(mapped)
       } else {
-        const { data: directData } = await supabase
-          .from('properties')
-          .select('*')
-          .order('created_at', { ascending: false })
-
-        if (directData) {
-          const mapped: ManagedProperty[] = directData.map((p: any) => ({
-            id: String(p.id),
-            title: p.title || 'Untitled Property',
-            location: p.town || p.district || p.location || 'Kampala',
-            rent: p.price || p.rent || 0,
-            status: p.status || 'Active',
-            cover_image: p.cover_image_url || p.images?.[0] || '/placeholder.png',
-          }))
-          setProperties(mapped)
-        }
+        setProperties([])
       }
 
       setLoading(false)
@@ -108,6 +89,7 @@ export default function ManageListingsPage() {
 
     if (error) {
       console.error('Error updating status:', error)
+      alert('Could not update status. Ensure you have permission to edit this listing.')
     }
 
     setUpdatingId(null)
@@ -144,7 +126,9 @@ export default function ManageListingsPage() {
               )}
             </h1>
             <p className="text-xs text-gray-500">
-              Control availability, update unit details, and monitor status for rental properties.
+              {isAdmin
+                ? 'Overview and management for all properties on the platform.'
+                : 'Control availability, update unit details, and monitor status for your posted properties.'}
             </p>
           </div>
 
@@ -193,11 +177,11 @@ export default function ManageListingsPage() {
 
           {loading ? (
             <div className="p-12 text-center text-xs font-semibold text-gray-400">
-              Loading property inventory...
+              Loading your property inventory...
             </div>
           ) : properties.length === 0 ? (
             <div className="p-12 text-center space-y-3">
-              <p className="text-sm font-bold text-gray-800">No properties found.</p>
+              <p className="text-sm font-bold text-gray-800">You haven't posted any properties yet.</p>
               <Link
                 href="/submit"
                 className="inline-block text-xs font-bold text-emerald-600 hover:underline"
