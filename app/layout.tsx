@@ -14,6 +14,14 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'Nestar Homes Uganda | Real Estate Platform',
   description: 'Verified rental listings and direct property access in Uganda',
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/icon.png', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
 }
 
 export default function RootLayout({
