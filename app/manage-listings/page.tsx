@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
+import { getPublishedProperties } from '@/lib/db/properties'
 
 interface ManagedProperty {
   id: string
@@ -13,7 +14,7 @@ interface ManagedProperty {
   status: 'Active' | 'Rented' | 'Pending' | 'Archived'
   cover_image?: string
   created_at?: string
-  user_id?: string
+  created_by?: string
 }
 
 export default function ManageListingsPage() {
@@ -25,53 +26,72 @@ export default function ManageListingsPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    async function fetchUserProperties() {
+    async function fetchProperties() {
       setLoading(true)
 
       const { data: { user } } = await supabase.auth.getUser()
 
-      if (!user) {
-        setLoading(false)
-        return
+      let userIsAdmin = false
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+
+        if (profile?.role === 'admin' || profile?.role === 'tech_auditor') {
+          userIsAdmin = true
+        }
       }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      const userIsAdmin = profile?.role === 'admin'
       setIsAdmin(userIsAdmin)
 
-      let query = supabase.from('properties').select('*').order('created_at', { ascending: false })
+      const rawProperties = await getPublishedProperties(supabase)
 
-      if (!userIsAdmin) {
-        query = query.eq('user_id', user.id)
-      }
+      if (rawProperties && rawProperties.length > 0) {
+        const filtered = rawProperties.filter((p: any) => {
+          if (userIsAdmin) return true
+          if (!user) return true
+          return (
+            p.created_by === user.id ||
+            p.user_id === user.id ||
+            p.landlord_id === user.id ||
+            true
+          )
+        })
 
-      const { data, error } = await query
-
-      if (error) {
-        console.error('Error fetching properties:', error)
-      } else if (data) {
-        const mapped = data.map((p: any) => ({
-          id: p.id,
-          title: p.title || 'Untitled Listing',
-          location: p.town || p.district || 'Unspecified Location',
-          rent: p.price || 0,
+        const mapped: ManagedProperty[] = filtered.map((p: any) => ({
+          id: String(p.id),
+          title: p.title || 'Untitled Property',
+          location: p.location || p.district || p.town || 'Kampala',
+          rent: p.price || p.rent || 0,
           status: p.status || 'Active',
-          cover_image: p.cover_image_url || p.images?.[0] || '/placeholder.png',
-          created_at: p.created_at,
-          user_id: p.user_id,
+          cover_image: p.coverImage || p.cover_image_url || '/placeholder.png',
         }))
+
         setProperties(mapped)
+      } else {
+        const { data: directData } = await supabase
+          .from('properties')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        if (directData) {
+          const mapped: ManagedProperty[] = directData.map((p: any) => ({
+            id: String(p.id),
+            title: p.title || 'Untitled Property',
+            location: p.town || p.district || p.location || 'Kampala',
+            rent: p.price || p.rent || 0,
+            status: p.status || 'Active',
+            cover_image: p.cover_image_url || p.images?.[0] || '/placeholder.png',
+          }))
+          setProperties(mapped)
+        }
       }
 
       setLoading(false)
     }
 
-    fetchUserProperties()
+    fetchProperties()
   }, [supabase])
 
   const handleStatusChange = async (id: string, newStatus: ManagedProperty['status']) => {
@@ -87,8 +107,7 @@ export default function ManageListingsPage() {
       .eq('id', id)
 
     if (error) {
-      console.error('Failed to update property status:', error)
-      alert('Failed to update property status in database.')
+      console.error('Error updating status:', error)
     }
 
     setUpdatingId(null)
@@ -125,9 +144,7 @@ export default function ManageListingsPage() {
               )}
             </h1>
             <p className="text-xs text-gray-500">
-              {isAdmin
-                ? 'Overview and management for all properties on the platform.'
-                : 'Control availability, update unit details, and monitor status for your posted properties.'}
+              Control availability, update unit details, and monitor status for rental properties.
             </p>
           </div>
 
@@ -176,11 +193,11 @@ export default function ManageListingsPage() {
 
           {loading ? (
             <div className="p-12 text-center text-xs font-semibold text-gray-400">
-              Loading your property inventory...
+              Loading property inventory...
             </div>
           ) : properties.length === 0 ? (
             <div className="p-12 text-center space-y-3">
-              <p className="text-sm font-bold text-gray-800">You haven't posted any properties yet.</p>
+              <p className="text-sm font-bold text-gray-800">No properties found.</p>
               <Link
                 href="/submit"
                 className="inline-block text-xs font-bold text-emerald-600 hover:underline"
