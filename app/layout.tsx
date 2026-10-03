@@ -17,11 +17,11 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://www.nestar.homes'),
   icons: {
     icon: [
-      { url: '/favicon.ico?v=3', sizes: 'any' },
-      { url: '/favicon.ico?v=3', type: 'image/x-icon' },
+      { url: '/icon.png?v=4', type: 'image/png' },
+      { url: '/favicon.ico?v=4' }
     ],
-    shortcut: '/favicon.ico?v=3',
-    apple: '/apple-touch-icon.png?v=3',
+    shortcut: '/icon.png?v=4',
+    apple: '/apple-icon.png?v=4',
   },
 }
 
@@ -33,8 +33,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="https://www.nestar.homes/favicon.ico?v=3" sizes="any" />
-        <link rel="apple-touch-icon" href="https://www.nestar.homes/apple-touch-icon.png?v=3" />
+        <link rel="icon" href="/icon.png?v=4" type="image/png" />
+        <link rel="apple-touch-icon" href="/apple-icon.png?v=4" />
       </head>
       <body className={`${inter.className} bg-gray-50 antialiased overflow-x-hidden`}>
         {children}

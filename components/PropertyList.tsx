@@ -6,6 +6,7 @@ import Link from 'next/link'
 interface Property {
   id: string
   title: string
+  district_name: string // Added
   town_name: string
   village_name: string
   rent_amount: number
