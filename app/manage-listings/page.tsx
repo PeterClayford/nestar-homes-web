@@ -1,101 +1,204 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Navbar from '@/components/Navbar'
+import { createClient } from '@/lib/supabase/client'
 
-interface Property {
+interface ManagedProperty {
   id: string
   title: string
   location: string
   rent: number
   status: 'Active' | 'Rented' | 'Pending' | 'Archived'
+  cover_image?: string
+  created_at?: string
 }
 
 export default function ManageListingsPage() {
-  // Demo state - replace or sync with your database/Supabase client
-  const [properties, setProperties] = useState<Property[]>([
-    { id: '1', title: 'Quiet Escape', location: 'Kayunga', rent: 800000, status: 'Active' },
-    { id: '2', title: 'Naska Apartments', location: 'Kawempe', rent: 1200000, status: 'Active' },
-    { id: '3', title: 'Modern House 2 Bedrooms', location: 'Kasubi Market', rent: 1500000, status: 'Rented' },
+  const [properties, setProperties] = useState<ManagedProperty[]>([
+    {
+      id: '1',
+      title: 'Quiet Escape',
+      location: 'Kayunga',
+      rent: 800000,
+      status: 'Active',
+      cover_image: 'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=150&auto=format&fit=crop&q=80',
+    },
+    {
+      id: '2',
+      title: 'Naska Apartments',
+      location: 'Kawempe',
+      rent: 1200000,
+      status: 'Active',
+      cover_image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=150&auto=format&fit=crop&q=80',
+    },
+    {
+      id: '3',
+      title: 'Modern House 2 Bedrooms',
+      location: 'Kasubi Market',
+      rent: 1500000,
+      status: 'Rented',
+      cover_image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=150&auto=format&fit=crop&q=80',
+    },
   ])
 
-  const handleStatusChange = (id: string, newStatus: Property['status']) => {
+  const handleStatusChange = async (id: string, newStatus: ManagedProperty['status']) => {
     setProperties((prev) =>
       prev.map((prop) => (prop.id === id ? { ...prop, status: newStatus } : prop))
     )
-    // TODO: Trigger API update (e.g., await supabase.from('properties').update({ status: newStatus }).eq('id', id))
   }
 
+  const totalListings = properties.length
+  const activeListings = properties.filter((p) => p.status === 'Active').length
+  const totalRevenue = properties
+    .filter((p) => p.status === 'Active' || p.status === 'Rented')
+    .reduce((sum, p) => sum + p.rent, 0)
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6 md:p-12">
-      <div className="mx-auto max-w-5xl">
-        <div className="flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-gray-50 font-sans">
+      <Navbar />
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
           <div>
-            <Link href="/" className="text-sm font-medium text-emerald-600 hover:underline">
-              ← Back to home
-            </Link>
-            <h1 className="text-2xl font-bold text-gray-900 mt-2">Manage Listings</h1>
-            <p className="text-sm text-gray-600">Edit property details and toggle availability statuses.</p>
+            <div className="flex items-center gap-2 text-xs font-semibold text-gray-400">
+              <Link href="/" className="hover:text-emerald-600 transition">
+                Home
+              </Link>
+              <span>/</span>
+              <span className="text-gray-700">Property Portal</span>
+            </div>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight mt-1">
+              Manage Listings
+            </h1>
+            <p className="text-xs text-gray-500">
+              Control availability, update unit details, and monitor rental status.
+            </p>
           </div>
+
           <Link
             href="/submit"
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+            className="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-sm transition gap-2"
           >
-            + Post New Property
+            <span>+</span> Post New Property
           </Link>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <table className="w-full text-left text-sm text-gray-600">
-            <thead className="bg-gray-100 text-xs font-semibold text-gray-700 uppercase">
-              <tr>
-                <th className="px-6 py-4">Property Title</th>
-                <th className="px-6 py-4">Location</th>
-                <th className="px-6 py-4">Rent (UGX)</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {properties.map((prop) => (
-                <tr key={prop.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-semibold text-gray-900">{prop.title}</td>
-                  <td className="px-6 py-4">{prop.location}</td>
-                  <td className="px-6 py-4">{prop.rent.toLocaleString()}</td>
-                  <td className="px-6 py-4">
-                    <select
-                      value={prop.status}
-                      onChange={(e) => handleStatusChange(prop.id, e.target.value as Property['status'])}
-                      className={`rounded-md px-2.5 py-1 text-xs font-semibold border ${
-                        prop.status === 'Active'
-                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                          : prop.status === 'Rented'
-                          ? 'border-blue-200 bg-blue-50 text-blue-700'
-                          : prop.status === 'Pending'
-                          ? 'border-amber-200 bg-amber-50 text-amber-700'
-                          : 'border-gray-200 bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      <option value="Active">Active</option>
-                      <option value="Rented">Rented</option>
-                      <option value="Pending">Pending</option>
-                      <option value="Archived">Archived</option>
-                    </select>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <Link
-                      href={`/submit?edit=${prop.id}`}
-                      className="font-medium text-emerald-600 hover:underline mr-4"
-                    >
-                      Edit
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Executive Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-1">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              Total Managed
+            </span>
+            <div className="text-2xl font-black text-gray-900">{totalListings} Units</div>
+          </div>
+          <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-1">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              Active Listings
+            </span>
+            <div className="text-2xl font-black text-emerald-600">{activeListings} Live</div>
+          </div>
+          <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-1">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              Monthly Rent Value
+            </span>
+            <div className="text-2xl font-black text-gray-900">
+              {totalRevenue.toLocaleString()} <span className="text-xs font-bold text-gray-400">UGX</span>
+            </div>
+          </div>
         </div>
-      </div>
+
+        {/* Interactive Property Table */}
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-sm font-extrabold text-gray-900 uppercase tracking-wider">
+              Property Inventory
+            </h2>
+            <span className="text-xs font-semibold text-gray-400">
+              Showing {properties.length} results
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-gray-600">
+              <thead className="bg-gray-50/80 text-[10px] font-extrabold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                <tr>
+                  <th className="px-6 py-4">Property</th>
+                  <th className="px-6 py-4">Location</th>
+                  <th className="px-6 py-4">Rent (UGX)</th>
+                  <th className="px-6 py-4">Availability Status</th>
+                  <th className="px-6 py-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {properties.map((prop) => (
+                  <tr key={prop.id} className="hover:bg-gray-50/60 transition">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={prop.cover_image || '/placeholder.png'}
+                          alt={prop.title}
+                          className="h-12 w-16 rounded-lg object-cover border border-gray-100 bg-gray-100"
+                        />
+                        <div>
+                          <div className="font-extrabold text-gray-900 text-sm">{prop.title}</div>
+                          <div className="text-[10px] text-gray-400 font-medium">ID: {prop.id}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 font-semibold text-gray-700">{prop.location}</td>
+                    <td className="px-6 py-4 font-black text-gray-900">
+                      {prop.rent.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <select
+                        value={prop.status}
+                        onChange={(e) =>
+                          handleStatusChange(prop.id, e.target.value as ManagedProperty['status'])
+                        }
+                        className={`rounded-xl px-3 py-1.5 text-xs font-bold cursor-pointer border focus:outline-none transition ${
+                          prop.status === 'Active'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : prop.status === 'Rented'
+                            ? 'border-blue-200 bg-blue-50 text-blue-700'
+                            : prop.status === 'Pending'
+                            ? 'border-amber-200 bg-amber-50 text-amber-700'
+                            : 'border-gray-200 bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        <option value="Active">● Active</option>
+                        <option value="Rented">● Rented</option>
+                        <option value="Pending">● Pending</option>
+                        <option value="Archived">● Archived</option>
+                      </select>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        <Link
+                          href={`/properties/${prop.id}`}
+                          className="font-bold text-gray-500 hover:text-gray-900 transition"
+                        >
+                          View
+                        </Link>
+                        <Link
+                          href={`/submit?edit=${prop.id}`}
+                          className="font-extrabold text-emerald-600 hover:text-emerald-700 transition"
+                        >
+                          Edit
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </main>
     </div>
   )
 }
