@@ -132,10 +132,10 @@ export default function HomePage() {
 
           {!loading && profile && ['landlord', 'property_manager', 'broker', 'admin'].includes(profile.role) && (
             <Link
-              href="/submit"
+              href="/manage-listings"
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-sm transition w-full md:w-auto text-center"
             >
-              + List Property
+              Manage Listings
             </Link>
           )}
 
