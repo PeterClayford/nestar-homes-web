@@ -4,17 +4,17 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
-import { getPublishedProperties } from '@/lib/db/properties'
 
 interface ManagedProperty {
   id: string
   title: string
-  location: string
-  rent: number
-  status: 'Active' | 'Rented' | 'Pending' | 'Archived'
-  cover_image?: string
-  created_at?: string
-  user_id?: string
+  town_name: string
+  village_name?: string
+  rent_amount: number
+  currency: string
+  status: string
+  images: string[]
+  landlord_id: string
 }
 
 export default function ManageListingsPage() {
@@ -36,6 +36,7 @@ export default function ManageListingsPage() {
         return
       }
 
+      // Check profile role
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -45,28 +46,22 @@ export default function ManageListingsPage() {
       const userIsAdmin = profile?.role === 'admin' || profile?.role === 'tech_auditor'
       setIsAdmin(userIsAdmin)
 
-      const rawProperties = await getPublishedProperties(supabase)
+      // Query directly based on landlord_id (exact schema match)
+      let query = supabase
+        .from('properties')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-      if (rawProperties && rawProperties.length > 0) {
-        const userListings = rawProperties.filter((p: any) => {
-          if (userIsAdmin) return true
-          const propertyOwnerId = p.created_by || p.user_id || p.landlord_id
-          return propertyOwnerId === user.id
-        })
+      if (!userIsAdmin) {
+        query = query.eq('landlord_id', user.id)
+      }
 
-        const mapped: ManagedProperty[] = userListings.map((p: any) => ({
-          id: String(p.id),
-          title: p.title || 'Untitled Property',
-          location: p.location || p.district || p.town || 'Kampala',
-          rent: p.price || p.rent || 0,
-          status: p.status || 'Active',
-          cover_image: p.coverImage || p.cover_image_url || '/placeholder.png',
-          user_id: p.created_by || p.user_id || p.landlord_id,
-        }))
+      const { data, error } = await query
 
-        setProperties(mapped)
-      } else {
-        setProperties([])
+      if (error) {
+        console.error('Error fetching properties:', error)
+      } else if (data) {
+        setProperties(data as ManagedProperty[])
       }
 
       setLoading(false)
@@ -75,7 +70,7 @@ export default function ManageListingsPage() {
     fetchProperties()
   }, [supabase])
 
-  const handleStatusChange = async (id: string, newStatus: ManagedProperty['status']) => {
+  const handleStatusChange = async (id: string, newStatus: string) => {
     setUpdatingId(id)
 
     setProperties((prev) =>
@@ -89,17 +84,15 @@ export default function ManageListingsPage() {
 
     if (error) {
       console.error('Error updating status:', error)
-      alert('Could not update status. Ensure you have permission to edit this listing.')
+      alert('Could not update status in database.')
     }
 
     setUpdatingId(null)
   }
 
   const totalListings = properties.length
-  const activeListings = properties.filter((p) => p.status === 'Active').length
-  const totalRevenue = properties
-    .filter((p) => p.status === 'Active' || p.status === 'Rented')
-    .reduce((sum, p) => sum + p.rent, 0)
+  const activeListings = properties.filter((p) => p.status === 'AVAILABLE' || p.status === 'Active').length
+  const totalRevenue = properties.reduce((sum, p) => sum + Number(p.rent_amount || 0), 0)
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -127,7 +120,7 @@ export default function ManageListingsPage() {
             </h1>
             <p className="text-xs text-gray-500">
               {isAdmin
-                ? 'Overview and management for all properties on the platform.'
+                ? 'Overview and management for all properties across Nestar Homes.'
                 : 'Control availability, update unit details, and monitor status for your posted properties.'}
             </p>
           </div>
@@ -164,7 +157,7 @@ export default function ManageListingsPage() {
           </div>
         </div>
 
-        {/* Property Table */}
+        {/* Property Inventory Table */}
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="p-5 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-sm font-extrabold text-gray-900 uppercase tracking-wider">
@@ -207,7 +200,7 @@ export default function ManageListingsPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={prop.cover_image}
+                            src={prop.images && prop.images.length > 0 ? prop.images[0] : '/placeholder.png'}
                             alt={prop.title}
                             className="h-12 w-16 rounded-lg object-cover border border-gray-100 bg-gray-100"
                           />
@@ -217,31 +210,31 @@ export default function ManageListingsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 font-semibold text-gray-700">{prop.location}</td>
+                      <td className="px-6 py-4 font-semibold text-gray-700">
+                        {prop.town_name}{prop.village_name ? `, ${prop.village_name}` : ''}
+                      </td>
                       <td className="px-6 py-4 font-black text-gray-900">
-                        {prop.rent.toLocaleString()}
+                        {Number(prop.rent_amount).toLocaleString()} {prop.currency}
                       </td>
                       <td className="px-6 py-4">
                         <select
                           value={prop.status}
                           disabled={updatingId === prop.id}
-                          onChange={(e) =>
-                            handleStatusChange(prop.id, e.target.value as ManagedProperty['status'])
-                          }
+                          onChange={(e) => handleStatusChange(prop.id, e.target.value)}
                           className={`rounded-xl px-3 py-1.5 text-xs font-bold cursor-pointer border focus:outline-none transition ${
-                            prop.status === 'Active'
+                            prop.status === 'AVAILABLE' || prop.status === 'Active'
                               ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                              : prop.status === 'Rented'
+                              : prop.status === 'RENTED' || prop.status === 'Rented'
                               ? 'border-blue-200 bg-blue-50 text-blue-700'
-                              : prop.status === 'Pending'
+                              : prop.status === 'PENDING' || prop.status === 'Pending'
                               ? 'border-amber-200 bg-amber-50 text-amber-700'
                               : 'border-gray-200 bg-gray-100 text-gray-600'
                           }`}
                         >
-                          <option value="Active">● Active</option>
-                          <option value="Rented">● Rented</option>
-                          <option value="Pending">● Pending</option>
-                          <option value="Archived">● Archived</option>
+                          <option value="AVAILABLE">● AVAILABLE</option>
+                          <option value="RENTED">● RENTED</option>
+                          <option value="PENDING">● PENDING</option>
+                          <option value="ARCHIVED">● ARCHIVED</option>
                         </select>
                       </td>
                       <td className="px-6 py-4 text-right">
