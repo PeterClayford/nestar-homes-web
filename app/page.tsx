@@ -227,8 +227,8 @@ export default function HomePage() {
                         className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                       />
                       
-                      {/* Location Badge (Top Left) */}
-                      <span className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-sm">
+                      {/* Original Brand-Green Location Badge (Top Left) */}
+                      <span className="absolute top-4 left-4 bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-sm">
                         {prop.location}
                       </span>
                     </div>
