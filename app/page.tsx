@@ -21,7 +21,6 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [propertiesLoading, setPropertiesLoading] = useState(true)
 
-  // Dynamic search and budget slider states
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [maxBudget, setMaxBudget] = useState<number>(5000000)
   const [dynamicUpperLimit, setDynamicUpperLimit] = useState<number>(5000000)
@@ -30,7 +29,6 @@ export default function HomePage() {
 
   useEffect(() => {
     async function fetchData() {
-      // 1. Fetch User Session Profile matching public.profiles DDL
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data } = await supabase
@@ -42,12 +40,10 @@ export default function HomePage() {
       }
       setLoading(false)
 
-      // 2. Fetch Mapped Properties via Central Helper
       setPropertiesLoading(true)
       const data = await getPublishedProperties(supabase)
       setProperties(data)
 
-      // Dynamically calculate the highest price in the database
       if (data.length > 0) {
         const highestPrice = Math.max(...data.map((p) => p.price), 5000000)
         setDynamicUpperLimit(highestPrice)
@@ -66,14 +62,12 @@ export default function HomePage() {
     return () => subscription.unsubscribe()
   }, [supabase])
 
-  // Extract first name dynamically from full_name or email fallback
   const firstName = profile?.full_name
     ? profile.full_name.trim().split(' ')[0]
     : profile?.email
     ? profile.email.split('@')[0]
     : 'User'
 
-  // Dynamic filter logic for broad text search across district, town, zone, and title
   const filteredProperties = properties.filter((prop) => {
     const q = searchQuery.toLowerCase().trim()
     const matchesSearch =
@@ -87,7 +81,6 @@ export default function HomePage() {
     return matchesSearch && matchesBudget
   })
 
-  // Role Badge Helper Utility
   const renderRoleBadge = (role: string) => {
     switch (role) {
       case 'landlord':
@@ -217,6 +210,7 @@ export default function HomePage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
             {filteredProperties.map((prop) => {
+              const isAvailable = prop.status === 'AVAILABLE' || prop.status === 'Active'
               const isRented = prop.status === 'RENTED' || prop.status === 'Rented'
               const isPending = prop.status === 'PENDING' || prop.status === 'Pending'
 
@@ -237,25 +231,30 @@ export default function HomePage() {
                       <span className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-sm">
                         {prop.location}
                       </span>
-
-                      {/* Status Ribbon Overlay (Top Right) */}
-                      {isRented && (
-                        <span className="absolute top-4 right-4 bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-md">
-                          Rented
-                        </span>
-                      )}
-
-                      {isPending && (
-                        <span className="absolute top-4 right-4 bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-md">
-                          Under Offer
-                        </span>
-                      )}
                     </div>
 
-                    <div className="p-4 sm:p-5 space-y-1">
-                      <h3 className="font-extrabold text-gray-900 text-base tracking-tight leading-snug line-clamp-2">
-                        {prop.title}
-                      </h3>
+                    <div className="p-4 sm:p-5 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-extrabold text-gray-900 text-base tracking-tight leading-snug line-clamp-1">
+                          {prop.title}
+                        </h3>
+
+                        {/* Clean Inline Status Badge */}
+                        <span
+                          className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${
+                            isAvailable
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : isPending
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : isRented
+                              ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              : 'bg-gray-100 text-gray-600 border-gray-200'
+                          }`}
+                        >
+                          {prop.status}
+                        </span>
+                      </div>
+
                       <p className="text-xs text-gray-400 font-medium">
                         {prop.zone}
                       </p>
