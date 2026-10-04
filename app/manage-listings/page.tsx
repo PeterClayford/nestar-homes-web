@@ -71,10 +71,6 @@ export default function ManageListingsPage() {
   const handleStatusChange = async (id: string, newStatus: string) => {
     setUpdatingId(id)
 
-    setProperties((prev) =>
-      prev.map((prop) => (prop.id === id ? { ...prop, status: newStatus } : prop))
-    )
-
     const { error } = await supabase
       .from('properties')
       .update({ status: newStatus })
@@ -82,9 +78,14 @@ export default function ManageListingsPage() {
 
     if (error) {
       console.error('Error updating status:', error)
-      alert('Could not update status in database.')
+      alert(`Could not update property status: ${error.message}`)
+      setUpdatingId(null)
+      return
     }
 
+    setProperties((prev) =>
+      prev.map((prop) => (prop.id === id ? { ...prop, status: newStatus } : prop))
+    )
     setUpdatingId(null)
   }
 
