@@ -216,52 +216,72 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-            {filteredProperties.map((prop) => (
-              <div
-                key={prop.id}
-                className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition group"
-              >
-                <div>
-                  <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-gray-100">
-                    <img
-                      src={prop.coverImage}
-                      alt={prop.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                    />
-                    <span className="absolute top-4 left-4 bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-sm">
-                      {prop.location}
-                    </span>
-                  </div>
+            {filteredProperties.map((prop) => {
+              const isRented = prop.status === 'RENTED' || prop.status === 'Rented'
+              const isPending = prop.status === 'PENDING' || prop.status === 'Pending'
 
-                  <div className="p-4 sm:p-5 space-y-1">
-                    <h3 className="font-extrabold text-gray-900 text-base tracking-tight line-clamp-1">
-                      {prop.title}
-                    </h3>
-                    <p className="text-xs text-gray-400 font-medium">
-                      {prop.zone}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-4 sm:p-5 pt-0 flex items-center justify-between border-t border-gray-50 mt-2 sm:mt-4">
+              return (
+                <div
+                  key={prop.id}
+                  className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition group"
+                >
                   <div>
-                    <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
-                      Monthly Rent
+                    <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-gray-100">
+                      <img
+                        src={prop.coverImage}
+                        alt={prop.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                      />
+                      
+                      {/* Location Badge (Top Left) */}
+                      <span className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-sm">
+                        {prop.location}
+                      </span>
+
+                      {/* Status Ribbon Overlay (Top Right) */}
+                      {isRented && (
+                        <span className="absolute top-4 right-4 bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-md">
+                          Rented
+                        </span>
+                      )}
+
+                      {isPending && (
+                        <span className="absolute top-4 right-4 bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-md">
+                          Under Offer
+                        </span>
+                      )}
                     </div>
-                    <div className="text-xs font-black text-emerald-600">
-                      {prop.price.toLocaleString()} {prop.currency}
+
+                    <div className="p-4 sm:p-5 space-y-1">
+                      <h3 className="font-extrabold text-gray-900 text-base tracking-tight leading-snug line-clamp-2">
+                        {prop.title}
+                      </h3>
+                      <p className="text-xs text-gray-400 font-medium">
+                        {prop.zone}
+                      </p>
                     </div>
                   </div>
 
-                  <Link
-                    href={`/properties/${prop.id}`}
-                    className="bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition"
-                  >
-                    View Details
-                  </Link>
+                  <div className="p-4 sm:p-5 pt-0 flex items-center justify-between border-t border-gray-50 mt-2 sm:mt-4">
+                    <div>
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
+                        Monthly Rent
+                      </div>
+                      <div className="text-xs font-black text-emerald-600">
+                        {prop.price.toLocaleString()} {prop.currency}
+                      </div>
+                    </div>
+
+                    <Link
+                      href={`/properties/${prop.id}`}
+                      className="bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition"
+                    >
+                      View Details
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
