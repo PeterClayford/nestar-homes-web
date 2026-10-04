@@ -32,7 +32,6 @@ export default function UserManagementPage() {
   const [isBroadcast, setIsBroadcast] = useState(false)
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
 
-  // Notification form state
   const [notifTitle, setNotifTitle] = useState('')
   const [notifBody, setNotifBody] = useState('')
   const [notifLink, setNotifLink] = useState('')
@@ -95,7 +94,6 @@ export default function UserManagementPage() {
     setSendingNotif(true)
 
     if (isBroadcast) {
-      // Build bulk inserts for all users
       const rowsToInsert = users.map((u) => ({
         user_id: u.id,
         title: notifTitle.trim(),
@@ -118,7 +116,6 @@ export default function UserManagementPage() {
         setMessage({ type: 'error', text: `Broadcast failed: ${error.message}` })
       }
     } else if (notifyUser) {
-      // Direct single user notification
       const { error } = await supabase.from('notifications').insert({
         user_id: notifyUser.id,
         title: notifTitle.trim(),
@@ -144,34 +141,34 @@ export default function UserManagementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
+    <div className="min-h-screen bg-gray-50 font-sans pb-20 md:pb-12">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 space-y-6">
 
         {/* Header Block */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl md:rounded-3xl border border-gray-100 shadow-sm">
           <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
               Account Governance & Partner Verification
             </h1>
             <p className="text-xs text-gray-500 mt-1">
               Review partner upgrade applications, inspect National ID (NIN) photos, and push system notifications
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:self-auto self-stretch">
             <button
               onClick={() => {
                 setIsBroadcast(true)
                 setNotifyUser(null)
               }}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+              className="flex-1 sm:flex-initial px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
             >
               📢 Broadcast to All
             </button>
             <button
               onClick={loadUsers}
-              className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+              className="flex-1 sm:flex-initial px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold rounded-xl transition cursor-pointer text-center"
             >
               Refresh Registry
             </button>
@@ -190,8 +187,8 @@ export default function UserManagementPage() {
           </div>
         )}
 
-        {/* User Table */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+        {/* User Container */}
+        <div className="bg-white rounded-2xl md:rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
           {loading ? (
             <div className="p-12 text-center text-xs font-semibold text-gray-400">
               Loading user registry...
@@ -201,37 +198,32 @@ export default function UserManagementPage() {
               No registered accounts found.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-gray-50/50 border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                    <th className="py-4 px-6">User / Contact</th>
-                    <th className="py-4 px-6">System Role</th>
-                    <th className="py-4 px-6">Account Status</th>
-                    <th className="py-4 px-6">NIN Document</th>
-                    <th className="py-4 px-6 text-right">Verification Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
-                  {users.map((u) => {
-                    const hasDocs =
-                      u.verification_documents?.nin_number ||
-                      u.verification_documents?.nin_front_url ||
-                      u.verification_documents?.notes
+            <>
+              {/* MOBILE VIEW: Touch-Friendly Responsive Cards */}
+              <div className="block md:hidden divide-y divide-gray-100">
+                {users.map((u) => {
+                  const hasDocs =
+                    u.verification_documents?.nin_number ||
+                    u.verification_documents?.nin_front_url ||
+                    u.verification_documents?.notes
 
-                    return (
-                      <tr key={u.id} className="hover:bg-gray-50/50 transition">
+                  return (
+                    <div key={u.id} className="p-4 space-y-3">
+                      
+                      {/* User Info */}
+                      <div>
+                        <div className="font-extrabold text-gray-900 text-sm">{u.full_name || 'Unnamed User'}</div>
+                        <div className="text-xs text-gray-400 font-mono mt-0.5 break-all">
+                          {u.email} • {u.phone_number || 'No Phone'}
+                        </div>
+                      </div>
 
-                        {/* User Identity */}
-                        <td className="py-4 px-6">
-                          <div className="font-bold text-gray-900">{u.full_name || 'Unnamed User'}</div>
-                          <div className="text-[11px] text-gray-400 font-mono mt-0.5">
-                            {u.email} • {u.phone_number || 'No Phone'}
-                          </div>
-                        </td>
-
-                        {/* Role Selector */}
-                        <td className="py-4 px-6">
+                      {/* Select Selectors */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <div>
+                          <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider block mb-1">
+                            System Role
+                          </label>
                           <select
                             value={u.role}
                             disabled={updatingId === u.id}
@@ -243,7 +235,7 @@ export default function UserManagementPage() {
                                 u.is_verified
                               )
                             }
-                            className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                            className="w-full px-2.5 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold bg-white focus:outline-none cursor-pointer"
                           >
                             <option value="client">Client</option>
                             <option value="landlord">Landlord</option>
@@ -252,10 +244,12 @@ export default function UserManagementPage() {
                             <option value="admin">Admin</option>
                             <option value="tech_auditor">Tech Auditor</option>
                           </select>
-                        </td>
+                        </div>
 
-                        {/* Status Selector */}
-                        <td className="py-4 px-6">
+                        <div>
+                          <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider block mb-1">
+                            Account Status
+                          </label>
                           <select
                             value={u.status}
                             disabled={updatingId === u.id}
@@ -267,7 +261,7 @@ export default function UserManagementPage() {
                                 u.is_verified
                               )
                             }
-                            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer ${
+                            className={`w-full px-2.5 py-1.5 rounded-xl border text-xs font-semibold focus:outline-none cursor-pointer ${
                               u.status === 'active'
                                 ? 'border-emerald-200 text-emerald-700 bg-emerald-50/30'
                                 : u.status === 'under_review'
@@ -280,59 +274,187 @@ export default function UserManagementPage() {
                             <option value="frozen">Frozen</option>
                             <option value="banned">Banned</option>
                           </select>
-                        </td>
+                        </div>
+                      </div>
 
-                        {/* NIN Document Indicator */}
-                        <td className="py-4 px-6">
-                          {hasDocs ? (
-                            <button
-                              onClick={() => setSelectedUser(u)}
-                              className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[11px] font-bold transition cursor-pointer"
+                      {/* NIN Inspector Trigger */}
+                      <div className="pt-1">
+                        {hasDocs ? (
+                          <button
+                            onClick={() => setSelectedUser(u)}
+                            className="w-full py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition cursor-pointer"
+                          >
+                            Inspect NIN Data
+                          </button>
+                        ) : (
+                          <div className="text-xs text-gray-400 italic">No NIN Docs</div>
+                        )}
+                      </div>
+
+                      {/* Verification & Alert Actions */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-gray-50">
+                        <button
+                          onClick={() => {
+                            setNotifyUser(u)
+                            setIsBroadcast(false)
+                          }}
+                          className="flex-1 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-extrabold transition cursor-pointer text-center"
+                        >
+                          🔔 Alert
+                        </button>
+
+                        <button
+                          onClick={() => updateUser(u.id, u.role, u.status, !u.is_verified)}
+                          disabled={updatingId === u.id}
+                          className={`flex-1 py-2 rounded-xl text-[10px] font-black tracking-wide uppercase transition cursor-pointer text-center ${
+                            u.is_verified
+                              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                          }`}
+                        >
+                          {u.is_verified ? '✓ Verified Partner' : 'Unverified'}
+                        </button>
+                      </div>
+
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* DESKTOP VIEW: Standard Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50/50 border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      <th className="py-4 px-6">User / Contact</th>
+                      <th className="py-4 px-6">System Role</th>
+                      <th className="py-4 px-6">Account Status</th>
+                      <th className="py-4 px-6">NIN Document</th>
+                      <th className="py-4 px-6 text-right">Verification Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
+                    {users.map((u) => {
+                      const hasDocs =
+                        u.verification_documents?.nin_number ||
+                        u.verification_documents?.nin_front_url ||
+                        u.verification_documents?.notes
+
+                      return (
+                        <tr key={u.id} className="hover:bg-gray-50/50 transition">
+
+                          {/* User Identity */}
+                          <td className="py-4 px-6">
+                            <div className="font-bold text-gray-900">{u.full_name || 'Unnamed User'}</div>
+                            <div className="text-[11px] text-gray-400 font-mono mt-0.5">
+                              {u.email} • {u.phone_number || 'No Phone'}
+                            </div>
+                          </td>
+
+                          {/* Role Selector */}
+                          <td className="py-4 px-6">
+                            <select
+                              value={u.role}
+                              disabled={updatingId === u.id}
+                              onChange={(e) =>
+                                updateUser(
+                                  u.id,
+                                  e.target.value as UserProfile['role'],
+                                  u.status,
+                                  u.is_verified
+                                )
+                              }
+                              className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                             >
-                              Inspect NIN Data
+                              <option value="client">Client</option>
+                              <option value="landlord">Landlord</option>
+                              <option value="property_manager">Property Manager</option>
+                              <option value="broker">Broker</option>
+                              <option value="admin">Admin</option>
+                              <option value="tech_auditor">Tech Auditor</option>
+                            </select>
+                          </td>
+
+                          {/* Status Selector */}
+                          <td className="py-4 px-6">
+                            <select
+                              value={u.status}
+                              disabled={updatingId === u.id}
+                              onChange={(e) =>
+                                updateUser(
+                                  u.id,
+                                  u.role,
+                                  e.target.value as UserProfile['status'],
+                                  u.is_verified
+                                )
+                              }
+                              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer ${
+                                u.status === 'active'
+                                  ? 'border-emerald-200 text-emerald-700 bg-emerald-50/30'
+                                  : u.status === 'under_review'
+                                  ? 'border-amber-200 text-amber-700 bg-amber-50/30'
+                                  : 'border-rose-200 text-rose-700 bg-rose-50/30'
+                              }`}
+                            >
+                              <option value="active">Active</option>
+                              <option value="under_review">Under Review</option>
+                              <option value="frozen">Frozen</option>
+                              <option value="banned">Banned</option>
+                            </select>
+                          </td>
+
+                          {/* NIN Document Indicator */}
+                          <td className="py-4 px-6">
+                            {hasDocs ? (
+                              <button
+                                onClick={() => setSelectedUser(u)}
+                                className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[11px] font-bold transition cursor-pointer"
+                              >
+                                Inspect NIN Data
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-gray-400 italic">No NIN Docs</span>
+                            )}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-4 px-6 text-right space-x-2">
+                            <button
+                              onClick={() => {
+                                setNotifyUser(u)
+                                setIsBroadcast(false)
+                              }}
+                              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-[10px] font-extrabold transition cursor-pointer"
+                            >
+                              🔔 Alert
                             </button>
-                          ) : (
-                            <span className="text-[11px] text-gray-400 italic">No NIN Docs</span>
-                          )}
-                        </td>
 
-                        {/* Actions */}
-                        <td className="py-4 px-6 text-right space-x-2">
-                          <button
-                            onClick={() => {
-                              setNotifyUser(u)
-                              setIsBroadcast(false)
-                            }}
-                            className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-[10px] font-extrabold transition cursor-pointer"
-                          >
-                            🔔 Alert
-                          </button>
+                            <button
+                              onClick={() => updateUser(u.id, u.role, u.status, !u.is_verified)}
+                              disabled={updatingId === u.id}
+                              className={`px-3.5 py-1.5 rounded-full text-[10px] font-black tracking-wide uppercase transition cursor-pointer ${
+                                u.is_verified
+                                  ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                              }`}
+                            >
+                              {u.is_verified ? '✓ Verified Partner' : 'Unverified'}
+                            </button>
+                          </td>
 
-                          <button
-                            onClick={() => updateUser(u.id, u.role, u.status, !u.is_verified)}
-                            disabled={updatingId === u.id}
-                            className={`px-3.5 py-1.5 rounded-full text-[10px] font-black tracking-wide uppercase transition cursor-pointer ${
-                              u.is_verified
-                                ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                            }`}
-                          >
-                            {u.is_verified ? '✓ Verified Partner' : 'Unverified'}
-                          </button>
-                        </td>
-
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
 
       </main>
 
-      {/* Dispatch Notification Modal (Single User OR Platform Broadcast) */}
+      {/* Dispatch Notification Modal */}
       {(notifyUser || isBroadcast) && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
