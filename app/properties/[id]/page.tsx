@@ -107,6 +107,10 @@ export default function PropertyDetailPage({ params }: Props) {
     )
   }
 
+  const isAvailable = property.status === 'AVAILABLE' || property.status === 'Active'
+  const isPending = property.status === 'PENDING' || property.status === 'Pending'
+  const isRented = property.status === 'RENTED' || property.status === 'Rented'
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans relative">
       <Navbar />
@@ -124,7 +128,29 @@ export default function PropertyDetailPage({ params }: Props) {
           <div className="p-6 md:p-10">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-6 mb-6">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-1">{property.title}</h1>
+                <div className="flex items-center gap-3 flex-wrap mb-1">
+                  <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{property.title}</h1>
+                  
+                  {/* Property Status Badge */}
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+                      isAvailable
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : isPending
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : isRented
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'bg-gray-100 text-gray-600 border border-gray-200'
+                    }`}
+                  >
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        isAvailable ? 'bg-emerald-500' : isPending ? 'bg-amber-500' : isRented ? 'bg-blue-500' : 'bg-gray-400'
+                      }`}
+                    />
+                    {property.status}
+                  </span>
+                </div>
                 <p className="text-sm text-slate-500">
                   {property.village_name ? `${property.village_name}, ` : ''}{property.town_name}, Greater Wakiso
                 </p>
@@ -148,14 +174,26 @@ export default function PropertyDetailPage({ params }: Props) {
               <div className="bg-slate-50 rounded-xl p-6 border border-slate-200/80 h-fit space-y-4">
                 <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Schedule Viewing</h3>
                 <p className="text-xs text-slate-500 leading-normal">
-                  Reserve an in-person viewing slot. Direct verification guarantees inspection priority.
+                  {isAvailable
+                    ? 'Reserve an in-person viewing slot. Direct verification guarantees inspection priority.'
+                    : 'This property is currently not accepting new viewing requests.'}
                 </p>
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="w-full bg-slate-900 text-white py-3 rounded-xl font-semibold text-sm hover:bg-slate-800 transition shadow-sm cursor-pointer"
-                >
-                  Request Viewing Access
-                </button>
+
+                {isAvailable ? (
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="w-full bg-slate-900 text-white py-3 rounded-xl font-semibold text-sm hover:bg-slate-800 transition shadow-sm cursor-pointer"
+                  >
+                    Request Viewing Access
+                  </button>
+                ) : (
+                  <button
+                    disabled
+                    className="w-full bg-slate-200 text-slate-500 py-3 rounded-xl font-semibold text-sm cursor-not-allowed"
+                  >
+                    {isRented ? 'Currently Rented' : isPending ? 'Viewing Under Offer' : 'Listing Archived'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -171,7 +209,6 @@ export default function PropertyDetailPage({ params }: Props) {
         />
       </main>
 
-      {/* Embedded Abigail Widget with active Property Context */}
       <AbigailWidget propertyId={resolvedParams.id} />
     </div>
   )
