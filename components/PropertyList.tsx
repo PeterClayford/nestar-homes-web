@@ -33,6 +33,24 @@ export default function PropertyList({ initialProperties }: PropertyListProps) {
     return matchesTown && matchesRent
   })
 
+  // Helper function to render status badges with distinct styling
+  const renderStatusBadge = (status: string) => {
+    const s = status ? status.toUpperCase() : 'AVAILABLE'
+    let colorClasses = 'bg-emerald-100 text-emerald-800 border-emerald-300' // AVAILABLE
+
+    if (s === 'PENDING') {
+      colorClasses = 'bg-amber-100 text-amber-800 border-amber-300'
+    } else if (s === 'RENTED') {
+      colorClasses = 'bg-blue-100 text-blue-800 border-blue-300'
+    }
+
+    return (
+      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-sm ${colorClasses}`}>
+        {s}
+      </span>
+    )
+  }
+
   return (
     <div className="space-y-8">
       {/* Optional Filters Bar */}
@@ -107,28 +125,35 @@ export default function PropertyList({ initialProperties }: PropertyListProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProperties.map((property) => (
-            <Link 
-              key={property.id} 
+            <Link
+              key={property.id}
               href={`/properties/${property.id}`}
               className="group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition block"
             >
               <div className="h-48 bg-slate-200 relative overflow-hidden">
                 {property.images && property.images[0] ? (
-                  <img 
-                    src={property.images[0]} 
-                    alt={property.title} 
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300" 
+                  <img
+                    src={property.images[0]}
+                    alt={property.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-slate-400 font-medium">
                     No Photo Available
                   </div>
                 )}
+                
+                {/* Location Badge (Top Left) */}
                 <span className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
                   {property.town_name}
                 </span>
+
+                {/* Status Badge (Top Right) */}
+                <div className="absolute top-3 right-3">
+                  {renderStatusBadge(property.status)}
+                </div>
               </div>
-              
+
               <div className="p-5">
                 <h2 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-emerald-700 transition">
                   {property.title}
@@ -136,7 +161,7 @@ export default function PropertyList({ initialProperties }: PropertyListProps) {
                 <p className="text-xs text-slate-500 mb-4">
                   {property.village_name ? `${property.village_name}, ` : ''}{property.town_name}
                 </p>
-                
+
                 <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                   <div>
                     <span className="text-xs text-slate-400 block">Monthly Rent</span>
@@ -144,7 +169,7 @@ export default function PropertyList({ initialProperties }: PropertyListProps) {
                       {Number(property.rent_amount).toLocaleString()} {property.currency}
                     </span>
                   </div>
-                  
+
                   <span className="bg-slate-900 text-white text-xs px-4 py-2 rounded-lg font-medium group-hover:bg-slate-800 transition">
                     View Details
                   </span>
