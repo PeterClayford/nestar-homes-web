@@ -22,6 +22,7 @@ export async function getPublishedProperties(supabase: SupabaseClient): Promise<
       *,
       geographic_nodes!district_id(id, name, node_type)
     `)
+    .or('status.eq.AVAILABLE,status.eq.Active')
     .order('created_at', { ascending: false })
 
   if (error) {
