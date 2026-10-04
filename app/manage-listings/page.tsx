@@ -193,8 +193,10 @@ export default function ManageListingsPage() {
                         className="h-16 w-20 rounded-xl object-cover border border-gray-100 bg-gray-100 flex-shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-extrabold text-gray-900 text-sm truncate">{prop.title}</h3>
-                        <p className="text-xs text-gray-500 font-medium truncate mt-0.5">
+                        <h3 className="font-extrabold text-gray-900 text-xs sm:text-sm leading-snug line-clamp-2 break-words">
+                          {prop.title}
+                        </h3>
+                        <p className="text-xs text-gray-500 font-medium truncate mt-1">
                           📍 {prop.town_name}{prop.village_name ? `, ${prop.village_name}` : ''}
                         </p>
                         <div className="text-sm font-black text-emerald-700 mt-1">
