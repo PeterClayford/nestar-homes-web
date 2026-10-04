@@ -33,24 +33,6 @@ export default function PropertyList({ initialProperties }: PropertyListProps) {
     return matchesTown && matchesRent
   })
 
-  // Helper function to render status badges with distinct styling
-  const renderStatusBadge = (status: string) => {
-    const s = status ? status.toUpperCase() : 'AVAILABLE'
-    let colorClasses = 'bg-emerald-100 text-emerald-800 border-emerald-300' // AVAILABLE
-
-    if (s === 'PENDING') {
-      colorClasses = 'bg-amber-100 text-amber-800 border-amber-300'
-    } else if (s === 'RENTED') {
-      colorClasses = 'bg-blue-100 text-blue-800 border-blue-300'
-    }
-
-    return (
-      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-sm ${colorClasses}`}>
-        {s}
-      </span>
-    )
-  }
-
   return (
     <div className="space-y-8">
       {/* Optional Filters Bar */}
@@ -142,16 +124,9 @@ export default function PropertyList({ initialProperties }: PropertyListProps) {
                     No Photo Available
                   </div>
                 )}
-                
-                {/* Location Badge (Top Left) */}
                 <span className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
                   {property.town_name}
                 </span>
-
-                {/* Status Badge (Top Right) */}
-                <div className="absolute top-3 right-3">
-                  {renderStatusBadge(property.status)}
-                </div>
               </div>
 
               <div className="p-5">
