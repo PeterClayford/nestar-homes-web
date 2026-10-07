@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
@@ -19,11 +19,16 @@ export default function UpgradeAccountPage() {
   const [businessName, setBusinessName] = useState('')
   const [agreedToTerms, setAgreedToTerms] = useState(false)
 
-  // File states for National ID Front & Back
+  // File & Preview states for National ID Front & Back
   const [idFrontFile, setIdFrontFile] = useState<File | null>(null)
   const [idBackFile, setIdBackFile] = useState<File | null>(null)
-  const [idFrontUrl, setIdFrontUrl] = useState('')
-  const [idBackUrl, setIdBackUrl] = useState('')
+  const [frontPreview, setFrontPreview] = useState<string | null>(null)
+  const [backPreview, setBackPreview] = useState<string | null>(null)
+
+  // Camera State
+  const [cameraActive, setCameraActive] = useState<'front' | 'back' | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
 
   const supabase = createClient()
   const router = useRouter()
@@ -76,11 +81,11 @@ export default function UpgradeAccountPage() {
         if (profile.verification_documents?.nin_number) {
           setNinNumber(profile.verification_documents.nin_number)
         }
-        if (profile.verification_documents?.id_front) {
-          setIdFrontUrl(profile.verification_documents.id_front)
+        if (profile.verification_documents?.id_front || profile.verification_documents?.nin_front_url) {
+          setFrontPreview(profile.verification_documents.id_front || profile.verification_documents.nin_front_url)
         }
-        if (profile.verification_documents?.id_back) {
-          setIdBackUrl(profile.verification_documents.id_back)
+        if (profile.verification_documents?.id_back || profile.verification_documents?.nin_back_url) {
+          setBackPreview(profile.verification_documents.id_back || profile.verification_documents.nin_back_url)
         }
       }
       setLoading(false)
@@ -103,10 +108,88 @@ export default function UpgradeAccountPage() {
     }
   }
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, side: 'front' | 'back') => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (side === 'front') setIdFrontFile(file)
+    if (side === 'back') setIdBackFile(file)
+
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      if (side === 'front') setFrontPreview(reader.result as string)
+      if (side === 'back') setBackPreview(reader.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const startCamera = async (side: 'front' | 'back') => {
+    setCameraActive(side)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+    } catch (err) {
+      console.error('Camera access error:', err)
+      alert('Could not access camera. Please allow camera permissions or upload a file instead.')
+      setCameraActive(null)
+    }
+  }
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !cameraActive) return
+
+    const canvas = document.createElement('canvas')
+    canvas.width = videoRef.current.videoWidth || 640
+    canvas.height = videoRef.current.videoHeight || 480
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height)
+      const dataUrl = canvas.toDataURL('image/jpeg')
+      
+      // Convert Data URL to File object for Supabase upload
+      fetch(dataUrl)
+        .then((res) => res.blob())
+        .then((blob) => {
+          const file = new File([blob], `camera_${cameraActive}_${Date.now()}.jpg`, { type: 'image/jpeg' })
+          if (cameraActive === 'front') {
+            setIdFrontFile(file)
+            setFrontPreview(dataUrl)
+          } else {
+            setIdBackFile(file)
+            setBackPreview(dataUrl)
+          }
+        })
+    }
+    stopCamera()
+  }
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+    setCameraActive(null)
+  }
+
+  const removeImage = (side: 'front' | 'back') => {
+    if (side === 'front') {
+      setIdFrontFile(null)
+      setFrontPreview(null)
+    } else {
+      setIdBackFile(null)
+      setBackPreview(null)
+    }
+  }
+
   const uploadFile = async (file: File, folder: string, userId: string): Promise<string> => {
     const fileExt = file.name.split('.').pop()
     const fileName = `${userId}/${folder}_${Date.now()}.${fileExt}`
-    
+
     const { error: uploadError } = await supabase.storage
       .from('documents')
       .upload(fileName, file, { upsert: true })
@@ -158,8 +241,8 @@ export default function UpgradeAccountPage() {
       return
     }
 
-    let uploadedFrontUrl = idFrontUrl
-    let uploadedBackUrl = idBackUrl
+    let uploadedFrontUrl = frontPreview || ''
+    let uploadedBackUrl = backPreview || ''
 
     try {
       if (idFrontFile) {
@@ -179,6 +262,8 @@ export default function UpgradeAccountPage() {
       nin_number: ninNumber.trim(),
       id_front: uploadedFrontUrl,
       id_back: uploadedBackUrl,
+      nin_front_url: uploadedFrontUrl,
+      nin_back_url: uploadedBackUrl,
       business_name: businessName.trim(),
     }
 
@@ -220,10 +305,46 @@ export default function UpgradeAccountPage() {
   const isFormValid = fullName.trim() !== '' && isPhoneValid && isWhatsAppValid && ninNumber.trim() !== '' && agreedToTerms
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
+    <div className="min-h-screen bg-gray-50 font-sans pb-16">
       <Navbar />
 
       <main className="max-w-2xl mx-auto px-4 py-12">
+
+        {/* Live Camera Viewfinder Modal */}
+        {cameraActive && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-4 text-center">
+              <h3 className="text-sm font-extrabold text-gray-900 capitalize">
+                Snap NIN Card {cameraActive} Photo
+              </h3>
+              <div className="relative aspect-video bg-black rounded-2xl overflow-hidden">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={capturePhoto}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold px-5 py-2.5 rounded-xl transition cursor-pointer"
+                >
+                  📸 Capture Photo
+                </button>
+                <button
+                  type="button"
+                  onClick={stopCamera}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -372,51 +493,97 @@ export default function UpgradeAccountPage() {
               />
             </div>
 
-            {/* National ID Upload Section */}
+            {/* National ID Upload & Dual-Mode Camera Section */}
             <div className="pt-2 border-t border-gray-100 space-y-4">
               <div>
                 <h3 className="text-xs font-extrabold text-gray-900 uppercase tracking-wider">
                   Identity Verification Documents
                 </h3>
                 <p className="text-[10px] text-gray-400 mt-0.5">
-                  Upload clear photos or snap a photo using your camera for account audit.
+                  Upload clear photos or snap live photos with your camera for account audit.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* ID Front */}
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                    National ID (Front Image)
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={(e) => e.target.files?.[0] && setIdFrontFile(e.target.files[0])}
-                    className="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-extrabold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
-                  />
-                  {idFrontUrl && !idFrontFile && (
-                    <p className="text-[10px] text-emerald-600 font-bold">✓ Front ID image attached</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                {/* Card Front Block */}
+                <div className="p-5 border-2 border-dashed border-gray-200 rounded-2xl text-center space-y-3 bg-gray-50/50">
+                  <div className="text-xs font-bold text-gray-800">NIN Card Front Photo</div>
+
+                  {frontPreview ? (
+                    <div className="relative h-32 rounded-xl overflow-hidden border border-gray-200">
+                      <img src={frontPreview} alt="NIN Front" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeImage('front')}
+                        className="absolute top-2 right-2 bg-black/60 hover:bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded-md font-bold transition cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-gray-400">Upload image file or snap live with camera</p>
                   )}
+
+                  <div className="flex items-center justify-center gap-2 pt-1">
+                    <label className="bg-gray-900 hover:bg-gray-800 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold cursor-pointer transition">
+                      📁 Choose File
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileSelect(e, 'front')}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => startCamera('front')}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold transition cursor-pointer"
+                    >
+                      📷 Use Camera
+                    </button>
+                  </div>
                 </div>
 
-                {/* ID Back */}
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                    National ID (Back Image)
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={(e) => e.target.files?.[0] && setIdBackFile(e.target.files[0])}
-                    className="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-extrabold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
-                  />
-                  {idBackUrl && !idBackFile && (
-                    <p className="text-[10px] text-emerald-600 font-bold">✓ Back ID image attached</p>
+                {/* Card Back Block */}
+                <div className="p-5 border-2 border-dashed border-gray-200 rounded-2xl text-center space-y-3 bg-gray-50/50">
+                  <div className="text-xs font-bold text-gray-800">NIN Card Back Photo</div>
+
+                  {backPreview ? (
+                    <div className="relative h-32 rounded-xl overflow-hidden border border-gray-200">
+                      <img src={backPreview} alt="NIN Back" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeImage('back')}
+                        className="absolute top-2 right-2 bg-black/60 hover:bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded-md font-bold transition cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-gray-400">Upload image file or snap live with camera</p>
                   )}
+
+                  <div className="flex items-center justify-center gap-2 pt-1">
+                    <label className="bg-gray-900 hover:bg-gray-800 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold cursor-pointer transition">
+                      📁 Choose File
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileSelect(e, 'back')}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => startCamera('back')}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold transition cursor-pointer"
+                    >
+                      📷 Use Camera
+                    </button>
+                  </div>
                 </div>
+
               </div>
             </div>
 
