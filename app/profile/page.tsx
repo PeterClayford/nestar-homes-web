@@ -36,6 +36,8 @@ export default function ProfilePage() {
   // Verification Form State
   const [ninInput, setNinInput] = useState('')
   const [message, setMessage] = useState('')
+  const [isSaved, setIsSaved] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
 
   const [frontPreview, setFrontPreview] = useState<string | null>(null)
   const [backPreview, setBackPreview] = useState<string | null>(null)
@@ -95,6 +97,12 @@ export default function ProfilePage() {
       }
       if (data.verification_documents?.nin_back_url) {
         setBackPreview(data.verification_documents.nin_back_url)
+      }
+
+      // Mark saved if documents are already populated
+      if (data.verification_documents?.nin_number && (data.verification_documents?.nin_front_url || data.verification_documents?.nin_back_url)) {
+        setIsSaved(true)
+        setIsDirty(false)
       }
     }
     setLoading(false)
@@ -159,6 +167,8 @@ export default function ProfilePage() {
     reader.onloadend = () => {
       if (side === 'front') setFrontPreview(reader.result as string)
       if (side === 'back') setBackPreview(reader.result as string)
+      setIsDirty(true)
+      setIsSaved(false)
     }
     reader.readAsDataURL(file)
   }
@@ -192,6 +202,8 @@ export default function ProfilePage() {
       const dataUrl = canvas.toDataURL('image/jpeg')
       if (cameraActive === 'front') setFrontPreview(dataUrl)
       if (cameraActive === 'back') setBackPreview(dataUrl)
+      setIsDirty(true)
+      setIsSaved(false)
     }
     stopCamera()
   }
@@ -204,6 +216,13 @@ export default function ProfilePage() {
     setCameraActive(null)
   }
 
+  const removeImage = (side: 'front' | 'back') => {
+    if (side === 'front') setFrontPreview(null)
+    if (side === 'back') setBackPreview(null)
+    setIsDirty(true)
+    setIsSaved(false)
+  }
+
   const handleSaveVerification = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profile) return
@@ -211,7 +230,7 @@ export default function ProfilePage() {
 
     const updatedDocs = {
       ...(profile.verification_documents || {}),
-      nin_number: ninInput,
+      nin_number: ninInput.trim(),
       nin_front_url: frontPreview || profile.verification_documents?.nin_front_url,
       nin_back_url: backPreview || profile.verification_documents?.nin_back_url,
     }
@@ -226,6 +245,8 @@ export default function ProfilePage() {
 
     if (!error) {
       setMessage('NIN Verification details and ID images saved successfully!')
+      setIsSaved(true)
+      setIsDirty(false)
       fetchProfile()
     } else {
       setMessage('Failed to update verification details.')
@@ -246,6 +267,7 @@ export default function ProfilePage() {
 
   const completionScore = calculateCompletion()
   const isApproved = profile?.is_verified
+  const canSave = isDirty || !isSaved
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -455,7 +477,11 @@ export default function ProfilePage() {
                   type="text"
                   required
                   value={ninInput}
-                  onChange={(e) => setNinInput(e.target.value)}
+                  onChange={(e) => {
+                    setNinInput(e.target.value)
+                    setIsDirty(true)
+                    setIsSaved(false)
+                  }}
                   placeholder="e.g. CM12345678910"
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
                 />
@@ -472,8 +498,8 @@ export default function ProfilePage() {
                       <img src={frontPreview} alt="NIN Front" className="w-full h-full object-cover" />
                       <button
                         type="button"
-                        onClick={() => setFrontPreview(null)}
-                        className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md font-bold"
+                        onClick={() => removeImage('front')}
+                        className="absolute top-2 right-2 bg-black/60 hover:bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded-md font-bold transition cursor-pointer"
                       >
                         Remove
                       </button>
@@ -495,7 +521,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => startCamera('front')}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold transition"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold transition cursor-pointer"
                     >
                       📷 Use Camera
                     </button>
@@ -511,8 +537,8 @@ export default function ProfilePage() {
                       <img src={backPreview} alt="NIN Back" className="w-full h-full object-cover" />
                       <button
                         type="button"
-                        onClick={() => setBackPreview(null)}
-                        className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md font-bold"
+                        onClick={() => removeImage('back')}
+                        className="absolute top-2 right-2 bg-black/60 hover:bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded-md font-bold transition cursor-pointer"
                       >
                         Remove
                       </button>
@@ -534,7 +560,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => startCamera('back')}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold transition"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-[10px] font-extrabold transition cursor-pointer"
                     >
                       📷 Use Camera
                     </button>
@@ -545,10 +571,14 @@ export default function ProfilePage() {
 
               <button
                 type="submit"
-                disabled={uploading}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-extrabold text-xs py-3.5 rounded-xl transition shadow-sm cursor-pointer mt-4"
+                disabled={uploading || !canSave}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-extrabold text-xs py-3.5 rounded-xl transition shadow-sm cursor-pointer mt-4"
               >
-                {uploading ? 'Updating Profile...' : 'Save Verification Details'}
+                {uploading
+                  ? 'Updating Profile...'
+                  : isSaved && !isDirty
+                  ? '✓ Verification Details Saved'
+                  : 'Save Verification Details'}
               </button>
             </form>
           )}
