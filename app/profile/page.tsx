@@ -318,7 +318,7 @@ export default function ProfilePage() {
 
             <p className="text-[11px] text-gray-600 font-medium pt-1">
               {isApproved
-                ? 'Your identity documents have been verified and approved by Nestar Homes Administration.'
+                ? 'Your identity documents have been verified and approved by Nestar Homes Support Team.'
                 : completionScore >= 80
                 ? 'Phase 2 complete! Your uploaded ID is currently under Admin review.'
                 : 'Complete Phase 1 & 2 below to unlock partner listing rights and trust badges.'}
