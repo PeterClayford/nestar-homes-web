@@ -27,7 +27,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [savingContact, setSavingContact] = useState(false)
-  
+
   // Contact Form State
   const [whatsappInput, setWhatsappInput] = useState('')
   const [sameAsPhone, setSameAsPhone] = useState(true)
