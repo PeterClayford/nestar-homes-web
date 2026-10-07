@@ -17,6 +17,8 @@ interface UserProfile {
     notes?: string
     submitted_at?: string
     nin_number?: string
+    id_front?: string
+    id_back?: string
     nin_front_url?: string
     nin_back_url?: string
   }
@@ -87,6 +89,42 @@ export default function UserManagementPage() {
     setUpdatingId(null)
   }
 
+  const handleUnlockProfileEdit = async (u: UserProfile) => {
+    setUpdatingId(u.id)
+    setMessage(null)
+
+    // Set status to under_review to allow re-submission/edits
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        status: 'under_review',
+        status_reason: 'Profile edit granted by administrator.',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', u.id)
+
+    if (profileError) {
+      setMessage({ type: 'error', text: `Failed to unlock profile: ${profileError.message}` })
+      setUpdatingId(null)
+      return
+    }
+
+    // Send automated notification to user
+    await supabase.from('notifications').insert({
+      user_id: u.id,
+      title: 'Profile Editing Unlocked 🔓',
+      message: 'An administrator has enabled editing on your account. You can now update your partner details and identity verification files.',
+      link: '/account/upgrade',
+    })
+
+    setMessage({
+      type: 'success',
+      text: `Profile editing unlocked for ${u.full_name || u.email}. Notification dispatched.`,
+    })
+    setUpdatingId(null)
+    await loadUsers()
+  }
+
   const handleSendNotification = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!notifTitle.trim() || !notifBody.trim()) return
@@ -153,7 +191,7 @@ export default function UserManagementPage() {
               Account Governance & Partner Verification
             </h1>
             <p className="text-xs text-gray-500 mt-1">
-              Review partner upgrade applications, inspect National ID (NIN) photos, and push system notifications
+              Review partner upgrade applications, inspect National ID (NIN) photos, unlock profiles, and push system alerts
             </p>
           </div>
           <div className="flex items-center gap-2 sm:self-auto self-stretch">
@@ -202,14 +240,13 @@ export default function UserManagementPage() {
               {/* MOBILE VIEW: Touch-Friendly Responsive Cards */}
               <div className="block md:hidden divide-y divide-gray-100">
                 {users.map((u) => {
-                  const hasDocs =
-                    u.verification_documents?.nin_number ||
-                    u.verification_documents?.nin_front_url ||
-                    u.verification_documents?.notes
+                  const frontDoc = u.verification_documents?.id_front || u.verification_documents?.nin_front_url
+                  const backDoc = u.verification_documents?.id_back || u.verification_documents?.nin_back_url
+                  const hasDocs = u.verification_documents?.nin_number || frontDoc || backDoc
 
                   return (
                     <div key={u.id} className="p-4 space-y-3">
-                      
+
                       {/* User Info */}
                       <div>
                         <div className="font-extrabold text-gray-900 text-sm">{u.full_name || 'Unnamed User'}</div>
@@ -291,28 +328,36 @@ export default function UserManagementPage() {
                         )}
                       </div>
 
-                      {/* Verification & Alert Actions */}
-                      <div className="flex items-center gap-2 pt-2 border-t border-gray-50">
+                      {/* Verification & Actions */}
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-50">
                         <button
                           onClick={() => {
                             setNotifyUser(u)
                             setIsBroadcast(false)
                           }}
-                          className="flex-1 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-extrabold transition cursor-pointer text-center"
+                          className="py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-extrabold transition cursor-pointer text-center"
                         >
                           🔔 Alert
                         </button>
 
                         <button
+                          onClick={() => handleUnlockProfileEdit(u)}
+                          disabled={updatingId === u.id}
+                          className="py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-[10px] font-extrabold transition cursor-pointer text-center"
+                        >
+                          🔓 Allow Edit
+                        </button>
+
+                        <button
                           onClick={() => updateUser(u.id, u.role, u.status, !u.is_verified)}
                           disabled={updatingId === u.id}
-                          className={`flex-1 py-2 rounded-xl text-[10px] font-black tracking-wide uppercase transition cursor-pointer text-center ${
+                          className={`py-2 rounded-xl text-[10px] font-black tracking-wide uppercase transition cursor-pointer text-center ${
                             u.is_verified
                               ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                               : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                           }`}
                         >
-                          {u.is_verified ? '✓ Verified Partner' : 'Unverified'}
+                          {u.is_verified ? '✓ Verified' : 'Unverified'}
                         </button>
                       </div>
 
@@ -330,15 +375,14 @@ export default function UserManagementPage() {
                       <th className="py-4 px-6">System Role</th>
                       <th className="py-4 px-6">Account Status</th>
                       <th className="py-4 px-6">NIN Document</th>
-                      <th className="py-4 px-6 text-right">Verification Action</th>
+                      <th className="py-4 px-6 text-right">Verification & Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
                     {users.map((u) => {
-                      const hasDocs =
-                        u.verification_documents?.nin_number ||
-                        u.verification_documents?.nin_front_url ||
-                        u.verification_documents?.notes
+                      const frontDoc = u.verification_documents?.id_front || u.verification_documents?.nin_front_url
+                      const backDoc = u.verification_documents?.id_back || u.verification_documents?.nin_back_url
+                      const hasDocs = u.verification_documents?.nin_number || frontDoc || backDoc
 
                       return (
                         <tr key={u.id} className="hover:bg-gray-50/50 transition">
@@ -430,6 +474,14 @@ export default function UserManagementPage() {
                             </button>
 
                             <button
+                              onClick={() => handleUnlockProfileEdit(u)}
+                              disabled={updatingId === u.id}
+                              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-[10px] font-extrabold transition cursor-pointer"
+                            >
+                              🔓 Allow Edit
+                            </button>
+
+                            <button
                               onClick={() => updateUser(u.id, u.role, u.status, !u.is_verified)}
                               disabled={updatingId === u.id}
                               className={`px-3.5 py-1.5 rounded-full text-[10px] font-black tracking-wide uppercase transition cursor-pointer ${
@@ -492,7 +544,7 @@ export default function UserManagementPage() {
                   required
                   value={notifTitle}
                   onChange={(e) => setNotifTitle(e.target.value)}
-                  placeholder="e.g. System and Admin Alerts Active!"
+                  placeholder="e.g. Profile Edit Granted"
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
                 />
               </div>
@@ -506,7 +558,7 @@ export default function UserManagementPage() {
                   rows={3}
                   value={notifBody}
                   onChange={(e) => setNotifBody(e.target.value)}
-                  placeholder="e.g. We have just upgraded the system to include the notification Bell"
+                  placeholder="e.g. Please update your National ID documents"
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50 resize-none"
                 ></textarea>
               </div>
@@ -519,7 +571,7 @@ export default function UserManagementPage() {
                   type="text"
                   value={notifLink}
                   onChange={(e) => setNotifLink(e.target.value)}
-                  placeholder="e.g. /profile"
+                  placeholder="e.g. /account/upgrade"
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-gray-50/50"
                 />
               </div>
@@ -589,9 +641,9 @@ export default function UserManagementPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="border border-gray-200 rounded-2xl p-3 bg-gray-50/50 space-y-2">
                   <div className="text-[10px] font-bold text-gray-500 uppercase">NIN Card Front Photo</div>
-                  {selectedUser.verification_documents?.nin_front_url ? (
+                  {selectedUser.verification_documents?.id_front || selectedUser.verification_documents?.nin_front_url ? (
                     <img
-                      src={selectedUser.verification_documents.nin_front_url}
+                      src={selectedUser.verification_documents.id_front || selectedUser.verification_documents.nin_front_url}
                       alt="NIN Front"
                       className="w-full h-44 object-cover rounded-xl border border-gray-200 shadow-xs"
                     />
@@ -604,9 +656,9 @@ export default function UserManagementPage() {
 
                 <div className="border border-gray-200 rounded-2xl p-3 bg-gray-50/50 space-y-2">
                   <div className="text-[10px] font-bold text-gray-500 uppercase">NIN Card Back Photo</div>
-                  {selectedUser.verification_documents?.nin_back_url ? (
+                  {selectedUser.verification_documents?.id_back || selectedUser.verification_documents?.nin_back_url ? (
                     <img
-                      src={selectedUser.verification_documents.nin_back_url}
+                      src={selectedUser.verification_documents.id_back || selectedUser.verification_documents.nin_back_url}
                       alt="NIN Back"
                       className="w-full h-44 object-cover rounded-xl border border-gray-200 shadow-xs"
                     />
