@@ -19,10 +19,15 @@ export default function UpgradeAccountPage() {
   const [businessName, setBusinessName] = useState('')
   const [agreedToTerms, setAgreedToTerms] = useState(false)
 
+  // File states for National ID Front & Back
+  const [idFrontFile, setIdFrontFile] = useState<File | null>(null)
+  const [idBackFile, setIdBackFile] = useState<File | null>(null)
+  const [idFrontUrl, setIdFrontUrl] = useState('')
+  const [idBackUrl, setIdBackUrl] = useState('')
+
   const supabase = createClient()
   const router = useRouter()
 
-  // Validate Uganda Mobile Money Phone (MTN/Airtel)
   const validateUgandanPhone = (phone: string): boolean => {
     const cleaned = phone.trim().replace(/[\s\-\+\(\)]/g, '')
     const localRegex = /^07\d{8}$/
@@ -30,18 +35,14 @@ export default function UpgradeAccountPage() {
     return localRegex.test(cleaned) || intlRegex.test(cleaned)
   }
 
-  // Validate Flexible International Phone (E.164 Standard) for WhatsApp
   const validateInternationalPhone = (phone: string): boolean => {
     const cleaned = phone.trim().replace(/[\s\-\+\(\)]/g, '')
     return /^\d{7,15}$/.test(cleaned)
   }
 
-  // Sanitize number into clean digits (e.g., convert local 07... to 2567... or keep intl digits)
   const sanitizePhoneNumber = (phone: string, isLocalOnly = false): string => {
     let cleaned = phone.trim().replace(/[\s\-\+\(\)]/g, '')
-    if (isLocalOnly && cleaned.startsWith('07')) {
-      cleaned = '256' + cleaned.substring(1)
-    } else if (!isLocalOnly && cleaned.startsWith('07')) {
+    if (cleaned.startsWith('07')) {
       cleaned = '256' + cleaned.substring(1)
     }
     return cleaned
@@ -75,6 +76,12 @@ export default function UpgradeAccountPage() {
         if (profile.verification_documents?.nin_number) {
           setNinNumber(profile.verification_documents.nin_number)
         }
+        if (profile.verification_documents?.id_front) {
+          setIdFrontUrl(profile.verification_documents.id_front)
+        }
+        if (profile.verification_documents?.id_back) {
+          setIdBackUrl(profile.verification_documents.id_back)
+        }
       }
       setLoading(false)
     }
@@ -94,6 +101,25 @@ export default function UpgradeAccountPage() {
     if (checked) {
       setWhatsappNumber(phoneNumber)
     }
+  }
+
+  const uploadFile = async (file: File, folder: string, userId: string): Promise<string> => {
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${userId}/${folder}_${Date.now()}.${fileExt}`
+    
+    const { error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(fileName, file, { upsert: true })
+
+    if (uploadError) {
+      throw new Error(`Failed to upload ${folder} document: ${uploadError.message}`)
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('documents')
+      .getPublicUrl(fileName)
+
+    return publicUrl
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -132,8 +158,28 @@ export default function UpgradeAccountPage() {
       return
     }
 
+    let uploadedFrontUrl = idFrontUrl
+    let uploadedBackUrl = idBackUrl
+
+    try {
+      if (idFrontFile) {
+        uploadedFrontUrl = await uploadFile(idFrontFile, 'id_front', user.id)
+      }
+      if (idBackFile) {
+        uploadedBackUrl = await uploadFile(idBackFile, 'id_back', user.id)
+      }
+    } catch (err: any) {
+      console.error('File upload error:', err)
+      setErrorMsg(err.message || 'Error uploading identification files.')
+      setSubmitting(false)
+      return
+    }
+
     const updatedDocs = {
       nin_number: ninNumber.trim(),
+      id_front: uploadedFrontUrl,
+      id_back: uploadedBackUrl,
+      business_name: businessName.trim(),
     }
 
     const { error } = await supabase
@@ -144,7 +190,7 @@ export default function UpgradeAccountPage() {
         whatsapp_number: cleanedWhatsApp,
         role: selectedRole,
         verification_documents: updatedDocs,
-        status_reason: `Tier 1 Completed: Applied for ${selectedRole.toUpperCase()} (NIN: ${ninNumber.trim()})`,
+        status_reason: `Application submitted for ${selectedRole.toUpperCase()} (NIN: ${ninNumber.trim()})`,
         updated_at: new Date().toISOString(),
       })
       .eq('id', user.id)
@@ -154,7 +200,7 @@ export default function UpgradeAccountPage() {
       setErrorMsg(error.message || 'Failed to submit partner application.')
       setSubmitting(false)
     } else {
-      router.push('/profile?step=tier2')
+      router.push('/profile?application=submitted')
     }
   }
 
@@ -182,7 +228,7 @@ export default function UpgradeAccountPage() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-md uppercase">
-                Phase 1 of 2
+                Verification Pipeline
               </span>
             </div>
             <h1 className="text-2xl font-black text-gray-900 tracking-tight">
@@ -246,7 +292,7 @@ export default function UpgradeAccountPage() {
                 </label>
                 {phoneNumber && !isPhoneValid && (
                   <span className="text-[10px] font-bold text-rose-500">
-                    Must start with 07 (10 digits) or 2567 (12 digits)
+                    Must start with 07 or 2567
                   </span>
                 )}
               </div>
@@ -295,9 +341,6 @@ export default function UpgradeAccountPage() {
                   }`}
                 />
               )}
-              <p className="text-[10px] text-gray-400">
-                Supports local and international numbers (e.g. +971..., +44..., +254...). Used strictly for dispatching tenant leads.
-              </p>
             </div>
 
             {/* Business Name */}
@@ -317,7 +360,7 @@ export default function UpgradeAccountPage() {
             {/* NIN Identification */}
             <div>
               <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                National ID (NIN) / Identification Number <span className="text-rose-500">*</span>
+                National ID (NIN) Number <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
@@ -329,7 +372,53 @@ export default function UpgradeAccountPage() {
               />
             </div>
 
-            {/* Legal Declaration Checkbox Requirement */}
+            {/* National ID Upload Section */}
+            <div className="pt-2 border-t border-gray-100 space-y-4">
+              <div>
+                <h3 className="text-xs font-extrabold text-gray-900 uppercase tracking-wider">
+                  Identity Verification Documents
+                </h3>
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  Upload clear photos of your National ID or Passport for account audit.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* ID Front */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                    National ID (Front Image)
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => e.target.files?.[0] && setIdFrontFile(e.target.files[0])}
+                    className="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-extrabold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                  />
+                  {idFrontUrl && !idFrontFile && (
+                    <p className="text-[10px] text-emerald-600 font-bold">✓ Front ID image attached</p>
+                  )}
+                </div>
+
+                {/* ID Back */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                    National ID (Back Image)
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => e.target.files?.[0] && setIdBackFile(e.target.files[0])}
+                    className="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-extrabold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                  />
+                  {idBackUrl && !idBackFile && (
+                    <p className="text-[10px] text-emerald-600 font-bold">✓ Back ID image attached</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Legal Declaration */}
             <div className="pt-2">
               <label className="flex items-start gap-3 p-4 rounded-2xl border border-gray-200 bg-gray-50/50 hover:bg-gray-100/50 transition cursor-pointer">
                 <input
@@ -351,7 +440,7 @@ export default function UpgradeAccountPage() {
               disabled={submitting || !isFormValid}
               className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-extrabold text-xs py-3.5 rounded-xl transition shadow-sm cursor-pointer mt-2"
             >
-              {submitting ? 'Saving Phase 1 Details...' : 'Proceed to Tier 2: Upload ID Documents →'}
+              {submitting ? 'Uploading Documents & Submitting...' : 'Submit Partner Application →'}
             </button>
           </form>
         </div>
