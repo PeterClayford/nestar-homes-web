@@ -379,7 +379,7 @@ export default function UpgradeAccountPage() {
                   Identity Verification Documents
                 </h3>
                 <p className="text-[10px] text-gray-400 mt-0.5">
-                  Upload clear photos of your National ID or Passport for account audit.
+                  Upload clear photos or snap a photo using your camera for account audit.
                 </p>
               </div>
 
@@ -392,6 +392,7 @@ export default function UpgradeAccountPage() {
                   <input
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     onChange={(e) => e.target.files?.[0] && setIdFrontFile(e.target.files[0])}
                     className="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-extrabold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
                   />
@@ -408,6 +409,7 @@ export default function UpgradeAccountPage() {
                   <input
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     onChange={(e) => e.target.files?.[0] && setIdBackFile(e.target.files[0])}
                     className="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-extrabold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
                   />
