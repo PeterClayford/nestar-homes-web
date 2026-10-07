@@ -99,7 +99,6 @@ export default function ProfilePage() {
         setBackPreview(data.verification_documents.nin_back_url)
       }
 
-      // Mark saved if documents are already populated
       if (data.verification_documents?.nin_number && (data.verification_documents?.nin_front_url || data.verification_documents?.nin_back_url)) {
         setIsSaved(true)
         setIsDirty(false)
@@ -244,7 +243,7 @@ export default function ProfilePage() {
       .eq('id', profile.id)
 
     if (!error) {
-      setMessage('NIN Verification details and ID images saved successfully!')
+      setMessage('✓ Identification saved successfully! Your documents are now under review. You will receive an update once verification is complete.')
       setIsSaved(true)
       setIsDirty(false)
       fetchProfile()
@@ -464,7 +463,7 @@ export default function ProfilePage() {
           ) : (
             <form onSubmit={handleSaveVerification} className="space-y-6">
               {message && (
-                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3 rounded-xl font-semibold">
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-4 rounded-2xl font-semibold leading-relaxed shadow-xs">
                   {message}
                 </div>
               )}
