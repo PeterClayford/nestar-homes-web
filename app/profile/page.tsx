@@ -18,13 +18,15 @@ interface UserProfile {
     nin_number?: string
     id_front?: string
     id_back?: string
-    business_name?: string
+    nin_front_url?: string
+    nin_back_url?: string
   }
 }
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+
   const supabase = createClient()
 
   useEffect(() => {
@@ -51,142 +53,112 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-gray-50 font-sans">
         <Navbar />
         <div className="max-w-xl mx-auto px-4 py-20 text-center text-xs font-semibold text-gray-400">
-          Loading user profile...
+          Loading profile details...
         </div>
       </div>
     )
   }
 
   const isPartner = ['landlord', 'property_manager', 'broker', 'admin', 'tech_auditor'].includes(profile?.role || '')
-  const frontDoc = profile?.verification_documents?.id_front
-  const backDoc = profile?.verification_documents?.id_back
+  const frontDoc = profile?.verification_documents?.id_front || profile?.verification_documents?.nin_front_url
+  const backDoc = profile?.verification_documents?.id_back || profile?.verification_documents?.nin_back_url
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans pb-16">
       <Navbar />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* Unified Dashboard Panel */}
-        <div className="bg-white rounded-3xl border border-gray-200/80 shadow-sm overflow-hidden divide-y divide-gray-100">
+      <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
 
-          {/* Section 1: User Identity Banner */}
-          <div className="p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 bg-gradient-to-r from-gray-900 to-slate-800 text-white">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-md uppercase tracking-wider">
-                  {profile?.role.replace('_', ' ')}
-                </span>
-                {profile?.is_verified ? (
-                  <span className="bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 text-[9px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wide">
-                    ✓ Verified Account
-                  </span>
-                ) : (
-                  <span className="bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[9px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wide">
-                    Under Review / Pending
-                  </span>
-                )}
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-                {profile?.full_name || 'Account Settings'}
-              </h1>
-              <p className="text-xs text-gray-300 font-mono">
-                {profile?.email}
-              </p>
+        {/* Card 1: User Identity Card */}
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-md uppercase tracking-wider">
+                {profile?.role.replace('_', ' ')}
+              </span>
             </div>
-
-            <Link
-              href="/account/upgrade"
-              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold px-5 py-3.5 rounded-xl transition shadow-md w-full sm:w-auto text-center cursor-pointer shrink-0"
-            >
-              {isPartner ? 'Update Partner Details & ID →' : 'Apply to Become a Partner →'}
-            </Link>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+              {profile?.full_name || 'Account Settings'}
+            </h1>
+            <p className="text-xs text-gray-400 font-mono">
+              {profile?.email}
+            </p>
           </div>
 
-          {/* Section 2: Contact & Account Metadata */}
-          <div className="p-6 sm:p-8 space-y-4">
-            <h2 className="text-xs font-black text-gray-400 uppercase tracking-wider">
-              Account & Contact Credentials
+          <Link
+            href="/account/upgrade"
+            className="bg-gray-900 hover:bg-gray-800 text-white text-xs font-extrabold px-5 py-3 rounded-xl transition shadow-sm text-center"
+          >
+            {isPartner ? 'Update Partner Details →' : 'Apply to Become a Partner →'}
+          </Link>
+        </div>
+
+        {/* Card 2: Account Contact Details */}
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+          <h2 className="text-xs font-black text-gray-900 uppercase tracking-wider">
+            Account Contact Details
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="p-4 bg-gray-50 rounded-2xl space-y-1">
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                Mobile Money Line
+              </div>
+              <div className="font-mono font-bold text-gray-900">
+                {profile?.phone_number || 'Not Set'}
+              </div>
+            </div>
+
+            <div className="p-4 bg-gray-50 rounded-2xl space-y-1">
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                WhatsApp Dispatch Line
+              </div>
+              <div className="font-mono font-bold text-emerald-700">
+                {profile?.whatsapp_number || 'Not Set'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Identification & Verification Audit */}
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-black text-gray-900 uppercase tracking-wider">
+              Identification & Verification
             </h2>
-
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
-              <div className="flex flex-col space-y-1">
-                <dt className="text-gray-400 font-semibold">Mobile Money Line</dt>
-                <dd className="font-mono font-bold text-gray-900 text-sm">
-                  {profile?.phone_number || '—'}
-                </dd>
-              </div>
-
-              <div className="flex flex-col space-y-1">
-                <dt className="text-gray-400 font-semibold">WhatsApp Dispatch Number</dt>
-                <dd className="font-mono font-bold text-emerald-700 text-sm">
-                  {profile?.whatsapp_number || '—'}
-                </dd>
-              </div>
-
-              {profile?.verification_documents?.business_name && (
-                <div className="flex flex-col space-y-1 sm:col-span-2">
-                  <dt className="text-gray-400 font-semibold">Business / Agency Name</dt>
-                  <dd className="font-bold text-gray-900 text-sm">
-                    {profile.verification_documents.business_name}
-                  </dd>
-                </div>
-              )}
-            </dl>
+            <span
+              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                profile?.is_verified
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+              }`}
+            >
+              {profile?.is_verified ? '✓ Verified Partner' : 'Under Review / Unverified'}
+            </span>
           </div>
 
-          {/* Section 3: Identity Verification Audit */}
-          <div className="p-6 sm:p-8 space-y-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xs font-black text-gray-400 uppercase tracking-wider">
-                  National ID Verification Audit
-                </h2>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Official identification records uploaded for compliance
-                </p>
-              </div>
-              <div className="font-mono font-extrabold text-xs bg-gray-100 text-gray-800 px-3 py-1 rounded-lg border border-gray-200">
-                NIN: {profile?.verification_documents?.nin_number || 'Not Provided'}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+            <div className="p-3.5 bg-gray-50 rounded-2xl space-y-1">
+              <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">National ID (NIN)</div>
+              <div className="font-mono font-bold text-gray-900 text-xs">
+                {profile?.verification_documents?.nin_number || 'Not Provided'}
               </div>
             </div>
 
-            {/* Document Snapshots Preview Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
-              {/* Front Image */}
-              <div className="border border-gray-200 rounded-2xl p-4 bg-gray-50/50 space-y-2">
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                  National ID (Front Image)
-                </div>
-                {frontDoc ? (
-                  <div className="rounded-xl overflow-hidden border border-gray-200 bg-black h-40">
-                    <img src={frontDoc} alt="National ID Front" className="w-full h-full object-contain" />
-                  </div>
-                ) : (
-                  <div className="h-40 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400 italic bg-white">
-                    No Front Photo Uploaded
-                  </div>
-                )}
+            <div className="p-3.5 bg-gray-50 rounded-2xl space-y-1">
+              <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Front ID Snapshot</div>
+              <div className={`font-bold text-xs ${frontDoc ? 'text-emerald-600' : 'text-rose-500'}`}>
+                {frontDoc ? '✓ Uploaded' : 'Missing'}
               </div>
+            </div>
 
-              {/* Back Image */}
-              <div className="border border-gray-200 rounded-2xl p-4 bg-gray-50/50 space-y-2">
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                  National ID (Back Image)
-                </div>
-                {backDoc ? (
-                  <div className="rounded-xl overflow-hidden border border-gray-200 bg-black h-40">
-                    <img src={backDoc} alt="National ID Back" className="w-full h-full object-contain" />
-                  </div>
-                ) : (
-                  <div className="h-40 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400 italic bg-white">
-                    No Back Photo Uploaded
-                  </div>
-                )}
+            <div className="p-3.5 bg-gray-50 rounded-2xl space-y-1">
+              <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Back ID Snapshot</div>
+              <div className={`font-bold text-xs ${backDoc ? 'text-emerald-600' : 'text-rose-500'}`}>
+                {backDoc ? '✓ Uploaded' : 'Missing'}
               </div>
             </div>
           </div>
-
         </div>
 
       </main>
