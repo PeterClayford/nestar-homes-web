@@ -1,9 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 
 export interface PropertyOwner {
-  full_name?: string
-  phone_number?: string
-  whatsapp_number?: string
+  first_name?: string
   is_verified?: boolean
 }
 
@@ -29,10 +27,8 @@ export async function getPublishedProperties(supabase: SupabaseClient): Promise<
     .select(`
       *,
       geographic_nodes!district_id(id, name, node_type),
-      owner:profiles!landlord_id(
-        full_name,
-        phone_number,
-        whatsapp_number,
+      owner:public_listing_owners!landlord_id(
+        first_name,
         is_verified
       )
     `)
@@ -48,10 +44,6 @@ export async function getPublishedProperties(supabase: SupabaseClient): Promise<
 
   return data.map((row: any) => {
     const ownerData = Array.isArray(row.owner) ? row.owner[0] : row.owner
-    
-    // Extract only the First Name for public privacy
-    const rawName = ownerData?.full_name?.trim() || ''
-    const firstNameOnly = rawName ? rawName.split(' ')[0] : ''
 
     return {
       id: row.id,
@@ -71,9 +63,7 @@ export async function getPublishedProperties(supabase: SupabaseClient): Promise<
       createdAt: row.created_at,
       owner: ownerData
         ? {
-            full_name: firstNameOnly, // Privacy Mask: First Name Only
-            phone_number: ownerData.phone_number || '',
-            whatsapp_number: ownerData.whatsapp_number || ownerData.phone_number || '',
+            first_name: ownerData.first_name || '',
             is_verified: ownerData.is_verified || false,
           }
         : undefined,
