@@ -214,12 +214,6 @@ export default function HomePage() {
               const isRented = prop.status === 'RENTED' || prop.status === 'Rented'
               const isPending = prop.status === 'PENDING' || prop.status === 'Pending'
 
-              const rawWhatsApp = prop.owner?.whatsapp_number || prop.owner?.phone_number || ''
-              const cleanedWhatsApp = rawWhatsApp.replace(/[\s\-\+\(\)]/g, '')
-              const encodedMsg = encodeURIComponent(`Hello! I am inquiring about your listing "${prop.title}" on Nestar Homes.`)
-              const whatsappUrl = cleanedWhatsApp ? `https://wa.me/${cleanedWhatsApp}?text=${encodedMsg}` : null
-              const phoneUrl = prop.owner?.phone_number ? `tel:${prop.owner.phone_number}` : null
-
               return (
                 <div
                   key={prop.id}
@@ -277,54 +271,22 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <div className="p-4 sm:p-5 pt-0 border-t border-gray-50 mt-2 sm:mt-4 space-y-3">
-                    <div className="flex items-center justify-between pt-3">
-                      <div>
-                        <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
-                          Monthly Rent
-                        </div>
-                        <div className="text-xs font-black text-emerald-600">
-                          {prop.price.toLocaleString()} {prop.currency}
-                        </div>
+                  <div className="p-4 sm:p-5 pt-0 border-t border-gray-50 mt-2 sm:mt-4 flex items-center justify-between pt-3">
+                    <div>
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
+                        Monthly Rent
                       </div>
-
-                      <Link
-                        href={`/properties/${prop.id}`}
-                        className="bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs px-4 py-2 rounded-xl transition"
-                      >
-                        View Details →
-                      </Link>
+                      <div className="text-xs font-black text-emerald-600">
+                        {prop.price.toLocaleString()} {prop.currency}
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      {whatsappUrl ? (
-                        <a
-                          href={whatsappUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] py-2 px-3 rounded-xl flex items-center justify-center gap-1 transition shadow-xs text-center cursor-pointer"
-                        >
-                          💬 WhatsApp
-                        </a>
-                      ) : (
-                        <span className="bg-gray-100 text-gray-400 text-center font-bold text-[11px] py-2 px-3 rounded-xl">
-                          No WhatsApp
-                        </span>
-                      )}
-
-                      {phoneUrl ? (
-                        <a
-                          href={phoneUrl}
-                          className="bg-gray-800 hover:bg-gray-900 text-white font-extrabold text-[11px] py-2 px-3 rounded-xl flex items-center justify-center gap-1 transition shadow-xs text-center cursor-pointer"
-                        >
-                          📞 Call Direct
-                        </a>
-                      ) : (
-                        <span className="bg-gray-100 text-gray-400 text-center font-bold text-[11px] py-2 px-3 rounded-xl">
-                          No Phone
-                        </span>
-                      )}
-                    </div>
+                    <Link
+                      href={`/properties/${prop.id}`}
+                      className="bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition"
+                    >
+                      View Details →
+                    </Link>
                   </div>
                 </div>
               )
