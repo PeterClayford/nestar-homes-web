@@ -27,8 +27,8 @@ export async function getPublishedProperties(supabase: SupabaseClient): Promise<
     .select(`
       *,
       geographic_nodes!district_id(id, name, node_type),
-      owner:public_listing_owners!landlord_id(
-        first_name,
+      owner:profiles!landlord_id(
+        full_name,
         is_verified
       )
     `)
@@ -44,6 +44,10 @@ export async function getPublishedProperties(supabase: SupabaseClient): Promise<
 
   return data.map((row: any) => {
     const ownerData = Array.isArray(row.owner) ? row.owner[0] : row.owner
+    
+    // Privacy Shield: Extract only First Name
+    const rawName = ownerData?.full_name?.trim() || ''
+    const firstNameOnly = rawName ? rawName.split(' ')[0] : ''
 
     return {
       id: row.id,
@@ -63,7 +67,7 @@ export async function getPublishedProperties(supabase: SupabaseClient): Promise<
       createdAt: row.created_at,
       owner: ownerData
         ? {
-            first_name: ownerData.first_name || '',
+            first_name: firstNameOnly,
             is_verified: ownerData.is_verified || false,
           }
         : undefined,
