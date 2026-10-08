@@ -3,16 +3,24 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
+interface PropertyOwner {
+  full_name?: string
+  phone_number?: string
+  whatsapp_number?: string
+  is_verified?: boolean
+}
+
 interface Property {
   id: string
   title: string
-  district_name: string // Added
+  district_name: string
   town_name: string
   village_name: string
   rent_amount: number
   currency: string
   status: string
   images: string[]
+  owner?: PropertyOwner
 }
 
 interface PropertyListProps {
@@ -26,7 +34,7 @@ export default function PropertyList({ initialProperties }: PropertyListProps) {
   // Extract unique towns for filter pills
   const towns = ['ALL', ...Array.from(new Set(initialProperties.map(p => p.town_name)))]
 
-  // Optional filter evaluation
+  // Filter evaluation
   const filteredProperties = initialProperties.filter(property => {
     const matchesTown = selectedTown === 'ALL' || property.town_name === selectedTown
     const matchesRent = property.rent_amount <= maxRent
@@ -35,7 +43,7 @@ export default function PropertyList({ initialProperties }: PropertyListProps) {
 
   return (
     <div className="space-y-8">
-      {/* Optional Filters Bar */}
+      {/* Filters Bar */}
       <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Location Pills */}
@@ -48,7 +56,7 @@ export default function PropertyList({ initialProperties }: PropertyListProps) {
                 <button
                   key={town}
                   onClick={() => setSelectedTown(town)}
-                  className={`text-xs font-semibold px-4 py-2 rounded-xl transition ${
+                  className={`text-xs font-semibold px-4 py-2 rounded-xl transition cursor-pointer ${
                     selectedTown === town
                       ? 'bg-slate-900 text-white shadow-sm'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -82,7 +90,7 @@ export default function PropertyList({ initialProperties }: PropertyListProps) {
           </div>
         </div>
 
-        {/* Reset Action (only shows when filters are active) */}
+        {/* Reset Action */}
         {(selectedTown !== 'ALL' || maxRent < 1500000) && (
           <div className="pt-2 border-t border-slate-100 flex justify-end">
             <button
@@ -90,7 +98,7 @@ export default function PropertyList({ initialProperties }: PropertyListProps) {
                 setSelectedTown('ALL')
                 setMaxRent(1500000)
               }}
-              className="text-xs font-medium text-slate-500 hover:text-slate-800 underline"
+              className="text-xs font-medium text-slate-500 hover:text-slate-800 underline cursor-pointer"
             >
               Reset Filters
             </button>
@@ -106,52 +114,108 @@ export default function PropertyList({ initialProperties }: PropertyListProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProperties.map((property) => (
-            <Link
-              key={property.id}
-              href={`/properties/${property.id}`}
-              className="group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition block"
-            >
-              <div className="h-48 bg-slate-200 relative overflow-hidden">
-                {property.images && property.images[0] ? (
-                  <img
-                    src={property.images[0]}
-                    alt={property.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-400 font-medium">
-                    No Photo Available
+          {filteredProperties.map((property) => {
+            const rawWhatsApp = property.owner?.whatsapp_number || property.owner?.phone_number || ''
+            const cleanedWhatsApp = rawWhatsApp.replace(/[\s\-\+\(\)]/g, '')
+            const encodedMsg = encodeURIComponent(`Hello! I'm inquiring about your listing "${property.title}" on Nestar Homes.`)
+            const whatsappUrl = cleanedWhatsApp ? `https://wa.me/${cleanedWhatsApp}?text=${encodedMsg}` : null
+            const phoneUrl = property.owner?.phone_number ? `tel:${property.owner.phone_number}` : null
+
+            return (
+              <div
+                key={property.id}
+                className="group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between"
+              >
+                {/* Upper Card Link Section */}
+                <Link href={`/properties/${property.id}`} className="block">
+                  <div className="h-48 bg-slate-200 relative overflow-hidden">
+                    {property.images && property.images[0] ? (
+                      <img
+                        src={property.images[0]}
+                        alt={property.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-400 font-medium">
+                        No Photo Available
+                      </div>
+                    )}
+                    
+                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                      <span className="bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
+                        {property.town_name}
+                      </span>
+                      {property.owner?.is_verified && (
+                        <span className="bg-slate-900/90 backdrop-blur-md text-emerald-400 border border-emerald-500/30 text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider shadow-xs">
+                          ✓ Verified
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
-                <span className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
-                  {property.town_name}
-                </span>
-              </div>
 
-              <div className="p-5">
-                <h2 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-emerald-700 transition">
-                  {property.title}
-                </h2>
-                <p className="text-xs text-slate-500 mb-4">
-                  {property.village_name ? `${property.village_name}, ` : ''}{property.town_name}
-                </p>
+                  <div className="p-5 space-y-3">
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900 group-hover:text-emerald-700 transition line-clamp-1">
+                        {property.title}
+                      </h2>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {property.village_name ? `${property.village_name}, ` : ''}{property.town_name}
+                      </p>
+                    </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                  <div>
-                    <span className="text-xs text-slate-400 block">Monthly Rent</span>
-                    <span className="text-lg font-extrabold text-emerald-700">
-                      {Number(property.rent_amount).toLocaleString()} {property.currency}
-                    </span>
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Monthly Rent</span>
+                        <span className="text-base font-black text-emerald-700">
+                          {Number(property.rent_amount).toLocaleString()} {property.currency}
+                        </span>
+                      </div>
+                    </div>
                   </div>
+                </Link>
 
-                  <span className="bg-slate-900 text-white text-xs px-4 py-2 rounded-lg font-medium group-hover:bg-slate-800 transition">
-                    View Details
-                  </span>
+                {/* Lower Action Contact Buttons (Outside Link to avoid nested <a> tags) */}
+                <div className="px-5 pb-5 pt-1 space-y-2 border-t border-slate-50">
+                  {property.owner?.full_name && (
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Listed by: <span className="text-slate-800">{property.owner.full_name}</span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {whatsappUrl ? (
+                      <a
+                        href={whatsappUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs py-2 px-3 rounded-xl flex items-center justify-center gap-1 transition shadow-xs cursor-pointer text-center"
+                      >
+                        💬 WhatsApp
+                      </a>
+                    ) : (
+                      <span className="bg-slate-100 text-slate-400 text-center font-semibold text-xs py-2 px-3 rounded-xl">
+                        No WhatsApp
+                      </span>
+                    )}
+
+                    {phoneUrl ? (
+                      <a
+                        href={phoneUrl}
+                        className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs py-2 px-3 rounded-xl flex items-center justify-center gap-1 transition shadow-xs cursor-pointer text-center"
+                      >
+                        📞 Call
+                      </a>
+                    ) : (
+                      <span className="bg-slate-100 text-slate-400 text-center font-semibold text-xs py-2 px-3 rounded-xl">
+                        No Phone
+                      </span>
+                    )}
+                  </div>
                 </div>
+
               </div>
-            </Link>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
