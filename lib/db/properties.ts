@@ -11,14 +11,14 @@ export interface Property {
   id: string
   title: string
   description?: string
-  district?: string     // Mapped from joined geographic_nodes
-  location: string      // Mapped from DB: town_name
-  zone: string          // Mapped from DB: village_name
-  price: number         // Mapped from DB: rent_amount
-  currency: string      // Mapped from DB: currency
-  images: string[]      // Mapped from DB: images array
-  coverImage: string    // Mapped from DB: images[0] or default fallback
-  status: string        // Mapped from DB: status
+  district?: string
+  location: string
+  zone: string
+  price: number
+  currency: string
+  images: string[]
+  coverImage: string
+  status: string
   createdAt: string
   owner?: PropertyOwner
 }
@@ -29,7 +29,7 @@ export async function getPublishedProperties(supabase: SupabaseClient): Promise<
     .select(`
       *,
       geographic_nodes!district_id(id, name, node_type),
-      owner:profiles!properties_user_id_fkey(
+      owner:profiles!landlord_id(
         full_name,
         phone_number,
         whatsapp_number,
