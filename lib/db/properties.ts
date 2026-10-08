@@ -48,6 +48,10 @@ export async function getPublishedProperties(supabase: SupabaseClient): Promise<
 
   return data.map((row: any) => {
     const ownerData = Array.isArray(row.owner) ? row.owner[0] : row.owner
+    
+    // Extract only the First Name for public privacy
+    const rawName = ownerData?.full_name?.trim() || ''
+    const firstNameOnly = rawName ? rawName.split(' ')[0] : ''
 
     return {
       id: row.id,
@@ -67,7 +71,7 @@ export async function getPublishedProperties(supabase: SupabaseClient): Promise<
       createdAt: row.created_at,
       owner: ownerData
         ? {
-            full_name: ownerData.full_name || '',
+            full_name: firstNameOnly, // Privacy Mask: First Name Only
             phone_number: ownerData.phone_number || '',
             whatsapp_number: ownerData.whatsapp_number || ownerData.phone_number || '',
             is_verified: ownerData.is_verified || false,

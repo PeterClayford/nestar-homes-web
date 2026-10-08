@@ -233,12 +233,10 @@ export default function HomePage() {
                         className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                       />
 
-                      {/* Original Brand-Green Location Badge (Top Left) */}
                       <span className="absolute top-4 left-4 bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-sm">
                         {prop.location}
                       </span>
 
-                      {/* Verified Badge (Top Right) */}
                       {prop.owner?.is_verified && (
                         <span className="absolute top-4 right-4 bg-gray-900/90 backdrop-blur-md text-emerald-400 border border-emerald-500/30 text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-wider shadow-sm">
                           ✓ Verified
@@ -252,7 +250,6 @@ export default function HomePage() {
                           {prop.title}
                         </h3>
 
-                        {/* Clean Inline Status Badge */}
                         <span
                           className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${
                             isAvailable
@@ -274,13 +271,12 @@ export default function HomePage() {
 
                       {prop.owner?.full_name && (
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider pt-1">
-                          Listed by: <span className="text-gray-700">{prop.owner.full_name}</span>
+                          LISTED BY: <span className="text-gray-700">{prop.owner.full_name}</span>
                         </p>
                       )}
                     </div>
                   </div>
 
-                  {/* Card Footer: Monthly Rent & Direct Action Buttons */}
                   <div className="p-4 sm:p-5 pt-0 border-t border-gray-50 mt-2 sm:mt-4 space-y-3">
                     <div className="flex items-center justify-between pt-3">
                       <div>
@@ -300,7 +296,6 @@ export default function HomePage() {
                       </Link>
                     </div>
 
-                    {/* WhatsApp & Call Action Row */}
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       {whatsappUrl ? (
                         <a
